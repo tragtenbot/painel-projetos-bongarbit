@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Painel de tarefas, projetos e documentos do Bongarbit." />
+  <title>Painel Bongarbit</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">BONGARBIT / CENTRAL DE TRABALHO</p>
+        <h1>Projetos, tarefas<br /><span>e documentos.</span></h1>
+        <p class="intro">Um índice vivo para acompanhar as próximas ações e encontrar rapidamente os materiais no Google Drive.</p>
+      </div>
+      <div class="hero-mark" aria-hidden="true">◌</div>
+    </header>
+
+    <section class="summary" aria-label="Resumo">
+      <div class="metric"><strong id="pending-count">0</strong><span>pendentes</span></div>
+      <div class="metric"><strong id="done-count">0</strong><span>concluídas</span></div>
+      <div class="metric"><strong id="document-count">0</strong><span>documentos</span></div>
+    </section>
+
+    <section class="toolbar" aria-label="Filtros">
+      <label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Buscar tarefas e documentos" /></label>
+      <div class="filters" role="group" aria-label="Filtrar por categoria">
+        <button class="filter active" data-filter="all">Tudo</button>
+        <button class="filter" data-filter="task">Tarefas</button>
+        <button class="filter" data-filter="document">Documentos</button>
+        <button class="filter" data-filter="folder">Pastas</button>
+      </div>
+    </section>
+
+    <div class="layout">
+      <section class="panel tasks-panel">
+        <div class="panel-heading"><div><p class="kicker">AGORA</p><h2>Lista de tarefas</h2></div><span class="pulse">em andamento</span></div>
+        <div id="tasks" class="task-list"></div>
+      </section>
+
+      <aside class="panel links-panel">
+        <div class="panel-heading"><div><p class="kicker">ARQUIVO</p><h2>Drive</h2></div></div>
+        <div id="links" class="link-list"></div>
+      </aside>
+    </div>
+
+    <footer><span>Atualizado manualmente a partir do trabalho no Drive.</span><a href="https://github.com/jtragtenberg/painel-projetos-bongarbit" target="_blank" rel="noreferrer">ver repositório ↗</a></footer>
+  </main>
+  <script src="./app.js"></script>
+</body>
+</html>
