@@ -21,9 +21,12 @@ MAX_SOURCE_CHARS = 28000
 MAX_CONTEXT_CHARS = 52000
 
 EXCLUDE_RE = re.compile(r"(dados pessoais|rg novo|copia_cpf|cartao_cnpj|cnpj\.pdf|cpf|notas fiscais|alterac.?o.*batebit|ata_eleicao|confirmacao de inscricao|estatuto|contrato social|ccmei)", re.I)
-PRIORITY_RE = re.compile(r"(edital|regulamento|faq|formulario|lei|decreto|resolu|sumula|in_min|manual|projeto|ficha|contexto|possibilidades|briefing|bongarbit|engome|agbau|botoes|xamba|sankofa|rumos|funcultura|metodologia|portfolio|curriculo)", re.I)
+PRIORITY_RE = re.compile(r"(edital|regulamento|faq|formulario|lei|decreto|resolu|sumula|in_min|manual|projeto|ficha|contexto|possibilidades|briefing|bongarbit|engome|agbau|botoes|xamba|sankofa|rumos|funcultura|metodologia|portfolio|curriculo|luteria|aula|escola|salic|orcamento|orçamento|financeir|relatorio|relatório|execucao|execução|analise|análise|aprovacao|aprovação|compliance|proponente|diligencia|diligência)", re.I)
 TEXT_MIMES = {"text/plain", "text/markdown", "text/csv", "application/rtf"}
 GOOGLE_DOC = "application/vnd.google-apps.document"
+GOOGLE_SHEET = "application/vnd.google-apps.spreadsheet"
+DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 FOLDER = "application/vnd.google-apps.folder"
 
 
@@ -61,6 +64,8 @@ def all_files(service, parent_id: str) -> list[dict[str, Any]]:
 def download_bytes(service, file_id: str, mime: str) -> bytes:
     if mime == GOOGLE_DOC:
         return service.files().export(fileId=file_id, mimeType="text/plain").execute()
+    if mime == GOOGLE_SHEET:
+        return service.files().export(fileId=file_id, mimeType=XLSX).execute()
     request = service.files().get_media(fileId=file_id)
     buf = io.BytesIO()
     downloader = MediaIoBaseDownload(buf, request)
@@ -80,10 +85,31 @@ def decode_file(item: dict[str, Any], raw: bytes) -> str:
             return "\n".join(page.extract_text() or "" for page in PdfReader(io.BytesIO(raw)).pages)
         except Exception:
             return ""
-    if mime == "application/vnd.openxmlformats-officedocument.wordprocessingml.document" or name.lower().endswith(".docx"):
+    if mime == DOCX or name.lower().endswith(".docx"):
         try:
             from docx import Document
-            return "\n".join(p.text for p in Document(io.BytesIO(raw)).paragraphs)
+            document = Document(io.BytesIO(raw))
+            chunks = [p.text for p in document.paragraphs if p.text.strip()]
+            for table in document.tables:
+                for row in table.rows:
+                    values = [cell.text.strip() for cell in row.cells]
+                    if any(values):
+                        chunks.append(" | ".join(values))
+            return "\n".join(chunks)
+        except Exception:
+            return ""
+    if mime == XLSX or name.lower().endswith((".xlsx", ".xlsm")):
+        try:
+            from openpyxl import load_workbook
+            workbook = load_workbook(io.BytesIO(raw), data_only=False, read_only=True)
+            chunks = []
+            for sheet in workbook.worksheets:
+                chunks.append(f"PLANILHA: {sheet.title}")
+                for row in sheet.iter_rows(values_only=True):
+                    values = ["" if value is None else str(value) for value in row]
+                    if any(values):
+                        chunks.append(" | ".join(values))
+            return "\n".join(chunks)
         except Exception:
             return ""
     return ""
@@ -93,7 +119,24 @@ def should_include(item: dict[str, Any]) -> bool:
     name = item.get("name", "")
     if item.get("mimeType") == FOLDER or EXCLUDE_RE.search(name):
         return False
-    return bool(PRIORITY_RE.search(name) or item.get("mimeType") in TEXT_MIMES or item.get("mimeType") == GOOGLE_DOC)
+    return bool(PRIORITY_RE.search(name) or item.get("mimeType") in TEXT_MIMES or item.get("mimeType") in {GOOGLE_DOC, GOOGLE_SHEET, DOCX, XLSX})
+
+
+def source_rank(source: dict[str, Any]) -> tuple[int, str]:
+    name = source.get("name", "").lower()
+    if re.search(r"edital|regulamento|faq|formulário|formulario|ficha do projeto|plano de preenchimento", name):
+        rank = 0
+    elif re.search(r"salic|compliance|proponente|tramita|aprova|execuç|execucao|diligên|diligen|avaliação|avaliacao", name):
+        rank = 1
+    elif re.search(r"orçamento|orcamento|financeir|planilha|relatório|relatorio", name):
+        rank = 2
+    elif re.search(r"projeto|bongarbit|engome|agbau|botões|botoes|xambá|xamba|sankofa|rumos|funcultura", name):
+        rank = 3
+    elif re.search(r"luteria|aula|escola", name):
+        rank = 4
+    else:
+        rank = 5
+    return rank, name
 
 
 def sync_context() -> dict[str, Any]:
@@ -117,7 +160,7 @@ def sync_context() -> dict[str, Any]:
             "modifiedTime": item.get("modifiedTime"), "webViewLink": item.get("webViewLink"),
             "text": text[:MAX_SOURCE_CHARS],
         })
-    sources.sort(key=lambda x: (0 if PRIORITY_RE.search(x["name"]) else 1, x["name"].lower()))
+    sources.sort(key=source_rank)
     payload = {"reference_folder_id": REFERENCE_FOLDER_ID, "source_count": len(sources), "skipped": skipped, "sources": sources}
     CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
     CACHE_PATH.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
@@ -151,16 +194,18 @@ def context_prompt(user_prompt: str, project_text: str = "", draft_text: str = "
         "Se faltar informação, marque [CONFIRMAR] em vez de preencher por suposição.",
         "\nPEDIDO ATUAL:\n" + user_prompt,
     ]
-    cumulative = draft_text or project_text
-    if cumulative:
-        parts.append("\n\nCONTEXTO CUMULATIVO DO SITE — preservar e considerar todos os textos anteriores e suas alterações:\n" + cumulative[:60000])
-    chars = sum(len(p) for p in parts)
+    source_parts = []
+    source_chars = 0
     for source in data.get("sources", []):
         block = f"\n\n--- FONTE: {source['name']} ---\n{source['text']}"
-        if chars + len(block) > MAX_CONTEXT_CHARS:
+        if source_chars + len(block) > MAX_CONTEXT_CHARS:
             break
-        parts.append(block)
-        chars += len(block)
+        source_parts.append(block)
+        source_chars += len(block)
+    parts.extend(source_parts)
+    cumulative = draft_text or project_text
+    if cumulative:
+        parts.append("\n\nCONTEXTO CUMULATIVO DO SITE — preservar e considerar todos os textos anteriores e suas alterações:\n" + cumulative[:55000])
     return "".join(parts)
 
 
