@@ -148,17 +148,22 @@ const tasks = [
 ];
 
 const links = [
-  { type: 'pasta', title: 'Referencia Vale Bongarbit', note: 'Edital, formulário, contexto e materiais de projeto', url: 'https://drive.google.com/drive/folders/1OS4zRBdG2nG7R8Ax-Qt2mIlnp23acK47' },
-  { type: 'pasta', title: 'Legislação Lei Rouanet', note: 'Textos e PDFs organizados para consulta', url: 'https://drive.google.com/drive/folders/1ttYbCOsZpbiWNmVaYQ2jgbuRgLyOLPH7' },
-  { type: 'documento', title: 'Índice de projetos e legislação', note: 'Links individuais para os documentos encontrados', url: 'https://drive.google.com/file/d/1XT26JtoRzWTHf9Zkg7LiHQNtAb_7ee5j/view?usp=drivesdk' },
-  { type: 'documento', title: 'Ficha do Projeto — Vale Bongarbit', note: 'Texto-base do projeto localizado no Drive', url: 'https://drive.google.com/file/d/1Tlyo1oBxoCOCKY84xBxcGexB_26De2rX/view?usp=drivesdk' },
-  { type: 'documento', title: 'Ficha Bongarbit revisada', note: 'Versão editável da ficha', url: 'https://docs.google.com/document/d/1dkfKBODwm1DJuhbZUP7-Ttnm7Ti0tOo1/edit?usp=drivesdk' },
-  { type: 'documento', title: 'Contexto do projeto Rouanet', note: 'Contexto e formulação já produzidos', url: 'https://drive.google.com/file/d/1GAeIPPlgTZ4u5yINuFUuQ-cGx1gnvHFV/view?usp=drivesdk' },
-  { type: 'planilha', title: 'Orçamento Plataforma SALIC / Lei Rouanet', note: 'Planilha de produção e orçamento', url: 'https://docs.google.com/spreadsheets/d/1idsaPIVkr5urXBxT5VuF4ldo0o3u2WeZjVRd3z0Yqpk/edit?usp=drivesdk' },
-  { type: 'documento', title: 'Possibilidades para o projeto', note: 'Ideias e caminhos levantados anteriormente', url: 'https://drive.google.com/file/d/1Z02mhsISxwn7qTG3unQEMnmVbVdHY4rm/view?usp=drivesdk' },
-  { type: 'documento', title: 'Plano de preenchimento do formulário', note: 'Roteiro para transformar a pesquisa em proposta', url: 'https://drive.google.com/file/d/1MRIiLoMoYX63_ZZXbT2uS6DDsGe9QYqL/view?usp=drivesdk' },
+  { type: 'documento', title: 'Mapa do contexto para preenchimento do formulário', note: 'Como cada fonte orienta a escrita dos campos', url: 'https://drive.google.com/file/d/1_-8joyRXruGXlAOeO4bhBlS0XWnLkJDy/view?usp=drivesdk' },
+  { type: 'documento', title: 'Índice de projetos e legislação', note: 'Referências individuais organizadas no Drive', url: 'https://drive.google.com/file/d/1XT26JtoRzWTHf9Zkg7LiHQNtAb_7ee5j/view?usp=drivesdk' },
+  { type: 'documento', title: 'Ficha do projeto Bongarbit', note: 'Texto-base do projeto', url: 'https://drive.google.com/file/d/1Tlyo1oBxoCOCKY84xBxcGexB_26De2rX/view?usp=drivesdk' },
+  { type: 'documento', title: 'Ficha do projeto Bongarbit — revisada', note: 'Versão editável da ficha', url: 'https://docs.google.com/document/d/1dkfKBODwm1DJuhbZUP7-Ttnm7Ti0tOo1/edit?usp=drivesdk' },
   { type: 'documento', title: 'Formulário do projeto', note: 'Campos extraídos e organizados', url: 'https://drive.google.com/file/d/1bYTv4ttRoF8Exae_vlwXZLsqmOw-hvLk/view?usp=drivesdk' },
-  { type: 'documento', title: 'Projeto ERE Sankofa', note: 'Projeto anterior usado como referência', url: 'https://drive.google.com/file/d/1e3GAPZWaxSiJnSAOXAKonj427SF7fIDN/view?usp=drivesdk' },
+  { type: 'documento', title: 'Plano de preenchimento do formulário', note: 'Roteiro para transformar pesquisa em proposta', url: 'https://drive.google.com/file/d/1MRIiLoMoYX63_ZZXbT2uS6DDsGe9QYqL/view?usp=drivesdk' },
+  { type: 'documento', title: 'Regulamento da chamada 2026', note: 'Regras, critérios e requisitos do edital', url: 'https://drive.google.com/file/d/1Gzvdlb3RLxWPOXsyb3cOYAYsBCAd0N4D/view?usp=drivesdk' },
+  { type: 'documento', title: 'Orçamento Plataforma SALIC / Lei Rouanet', note: 'Planilha de produção e orçamento', url: 'https://drive.google.com/file/d/1C0ss9shjVZqADz-8Ph5HLnagp_AmXhA_/view?usp=drivesdk' },
+  { type: 'documento', title: 'Projeto Escola Bongarbit — dados SALIC', note: 'Referência de tramitação, execução e resultados', url: 'https://drive.google.com/file/d/1yTirbV1NhXQ1quqCzx1xW4AL-9ZPnYiF/view?usp=drivesdk' },
+  { type: 'documento', title: 'Plano de aula — Engome 1', note: 'Metodologia e sequência pedagógica', url: 'https://drive.google.com/file/d/12-WKf4h4XICLKQsuRmVhJf49TS55HEzu/view?usp=drivesdk' },
+  { type: 'documento', title: 'Plano de aula — Agbe 1', note: 'Metodologia e sequência pedagógica', url: 'https://drive.google.com/file/d/12nRHBFOwR5C3nvaf6_QH9ySVpC9qnSfz/view?usp=drivesdk' },
+  { type: 'documento', title: 'Plano de aula — Tambor Falante 1', note: 'Metodologia e sequência pedagógica', url: 'https://drive.google.com/file/d/1nCROT6rgngkgAvFCYlyzuyUvG2o-9tVB/view?usp=drivesdk' },
+  { type: 'documento', title: 'Plano de aula — Berimbau 1', note: 'Metodologia e sequência pedagógica', url: 'https://drive.google.com/file/d/1IOz6f-l2yPbB-Mar4oAp0uLd4aze98Zo/view?usp=drivesdk' },
+  { type: 'documento', title: 'Relatório parcial — Bongarbit / Instituto Fab Lab Recife', note: 'Experiência e resultados anteriores', url: 'https://drive.google.com/file/d/1RX5oZwYFHEx3tU_pLvjNPfkrDwJDrLYe/view?usp=drivesdk' },
+  { type: 'documento', title: 'Relatório final — Instrumentos para o Carnaval de Rua', note: 'Experiência e resultados anteriores', url: 'https://drive.google.com/file/d/1nlGNPaFnlivbGA_wx47WefPVb3Gvfy-D/view?usp=drivesdk' },
+  { type: 'documento', title: 'Projeto Erê Sankofa', note: 'Projeto anterior usado como referência', url: 'https://drive.google.com/file/d/1e3GAPZWaxSiJnSAOXAKonj427SF7fIDN/view?usp=drivesdk' },
   { type: 'documento', title: 'Contexto do projeto Rumos', note: 'Experiência anterior do Bongarbit', url: 'https://drive.google.com/file/d/1tAE6PSYoge6x3kWHb4QUQEc9C8Ks1k-q/view?usp=drivesdk' },
   { type: 'documento', title: 'Contexto do Funcultura Carnaval', note: 'Outra proposta anterior para comparação', url: 'https://drive.google.com/file/d/1_9z5X6keAOfcyF53jXTJ-9bIk1dAsEk9/view?usp=drivesdk' }
 ];
@@ -184,7 +189,7 @@ function render() {
     </label>`).join('') : '<p class="empty">Nenhum item corresponde à busca.</p>';
   $('#links').innerHTML = visibleLinks.length ? visibleLinks.map(link => `
     <a class="drive-link" href="${link.url}" target="_blank" rel="noreferrer">
-      <span class="link-type">${link.type}</span><strong>${link.title} ↗</strong><small>${link.note}</small>
+      <span class="link-type">${link.type}</span><strong>${link.title}</strong><small>${link.note}</small>
     </a>`).join('') : '<p class="empty">Nenhum documento corresponde à busca.</p>';
   $('#pending-count').textContent = tasks.filter(t => t.status !== 'done').length;
   $('#done-count').textContent = tasks.filter(t => t.status === 'done').length;
