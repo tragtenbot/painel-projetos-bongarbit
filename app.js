@@ -1,3 +1,82 @@
+const formFields = [
+  { id: 'justificativa', name: 'Justificativa', instruction: 'Explique por que a proposta é necessária, qual problema enfrenta e por que este território e público são importantes.' },
+  { id: 'objetivo-geral', name: 'Objetivo geral', instruction: 'Formule o objetivo geral da proposta em uma frase clara, começando por um verbo de ação.' },
+  { id: 'objetivos-especificos', name: 'Objetivos específicos', instruction: 'Liste objetivos específicos verificáveis, derivados do objetivo geral.' },
+  { id: 'metodologia', name: 'Metodologia', instruction: 'Descreva como as atividades serão realizadas, em que sequência e com quais métodos.' },
+  { id: 'publico', name: 'Público-alvo', instruction: 'Descreva quem participa, faixa etária, território, quantidade estimada e critérios de acesso.' },
+  { id: 'cronograma', name: 'Cronograma de execução', instruction: 'Organize as principais etapas da proposta em uma sequência temporal.' },
+  { id: 'acessibilidade', name: 'Acessibilidade e democratização', instruction: 'Indique medidas de acessibilidade, inclusão, gratuidade e ampliação do acesso.' },
+  { id: 'resultados', name: 'Resultados esperados', instruction: 'Descreva entregas, efeitos e mudanças esperadas, evitando promessas impossíveis de verificar.' },
+  { id: 'contrapartida', name: 'Contrapartida social', instruction: 'Descreva a ação de retorno público, formativo ou comunitário da proposta.' },
+  { id: 'equipe', name: 'Equipe e responsabilidades', instruction: 'Apresente as funções da equipe e como cada pessoa contribui para a execução.' }
+];
+const proposalState = { stage: 'description', fieldIndex: 0, values: {}, bridge: false };
+const proposal$ = (selector) => document.querySelector(selector);
+const setProposalMessage = (message, tone = '') => { const el = proposal$('#proposal-message'); el.textContent = message; el.dataset.tone = tone; };
+const showStage = (stage) => {
+  proposalState.stage = stage;
+  ['description', 'summary', 'fields'].forEach(name => proposal$(`#proposal-${name}`).classList.toggle('hidden', name !== stage));
+  document.querySelectorAll('.step').forEach(step => step.classList.toggle('active', step.dataset.step === stage));
+};
+const currentField = () => formFields[proposalState.fieldIndex];
+const renderField = () => {
+  const field = currentField();
+  proposal$('#field-position').textContent = `Campo ${proposalState.fieldIndex + 1} de ${formFields.length}`;
+  proposal$('#field-name').textContent = field.name;
+  proposal$('#field-input').value = proposalState.values[field.id] || '';
+  proposal$('#next-field').textContent = proposalState.fieldIndex === formFields.length - 1 ? 'Salvar proposta' : 'Salvar e próximo';
+};
+const localDraft = (description) => {
+  const clean = description.trim().replace(/\s+/g, ' ');
+  if (!clean) return '';
+  return `Esta proposta parte de ${clean.charAt(0).toLowerCase() + clean.slice(1)}. A iniciativa articula criação, formação e participação coletiva, valorizando o território, os saberes envolvidos e a produção de resultados culturais acessíveis ao público.`;
+};
+async function generateWithCodex(prompt) {
+  if (!proposalState.bridge) return null;
+  const response = await fetch('http://127.0.0.1:8787/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt }) });
+  if (!response.ok) throw new Error(`bridge HTTP ${response.status}`);
+  const data = await response.json();
+  return data.text || data.output || '';
+}
+async function refreshBridgeStatus() {
+  try { const response = await fetch('http://127.0.0.1:8787/health', { signal: AbortSignal.timeout(800) }); proposalState.bridge = response.ok; } catch (_) { proposalState.bridge = false; }
+  const status = proposal$('#bridge-status'); status.textContent = proposalState.bridge ? 'Codex bridge conectado' : 'Codex bridge não conectado'; status.classList.toggle('connected', proposalState.bridge);
+}
+proposal$('#generate-summary').addEventListener('click', async () => {
+  const description = proposal$('#proposal-input').value.trim();
+  if (!description) return setProposalMessage('Escreva uma descrição antes de gerar o resumo.', 'error');
+  const button = proposal$('#generate-summary'); button.disabled = true; button.textContent = 'Gerando…';
+  try {
+    const prompt = `Você está ajudando a formular uma proposta cultural para um edital. Gere apenas um resumo claro, fiel e editável a partir desta descrição:\n\n${description}`;
+    const generated = await generateWithCodex(prompt);
+    proposal$('#summary-input').value = generated || localDraft(description);
+    showStage('summary');
+    setProposalMessage(generated ? 'Resumo gerado pelo Codex. Revise antes de continuar.' : 'Bridge do Codex não conectado: foi criado um rascunho local para você editar. Nenhuma API foi chamada.', generated ? 'success' : 'warning');
+  } catch (error) { setProposalMessage(`Não foi possível consultar o bridge do Codex: ${error.message}`, 'error'); }
+  finally { button.disabled = false; button.textContent = 'Gerar resumo'; }
+});
+proposal$('#back-description').addEventListener('click', () => showStage('description'));
+proposal$('#generate-first-field').addEventListener('click', () => { proposalState.fieldIndex = 0; proposalState.values.summary = proposal$('#summary-input').value.trim(); renderField(); showStage('fields'); setProposalMessage('Resumo salvo. Agora você pode gerar ou editar cada campo antes de avançar.'); });
+proposal$('#back-summary').addEventListener('click', () => { proposalState.values[currentField().id] = proposal$('#field-input').value; proposal$('#summary-input').value = proposalState.values.summary || proposal$('#summary-input').value; showStage('summary'); });
+proposal$('#generate-field').addEventListener('click', async () => {
+  const field = currentField(); const summary = proposalState.values.summary || proposal$('#summary-input').value.trim();
+  if (!summary) return setProposalMessage('Volte ao resumo e escreva a base da proposta.', 'error');
+  const button = proposal$('#generate-field'); button.disabled = true; button.textContent = 'Gerando…';
+  try {
+    const prompt = `Preencha somente o campo “${field.name}” de uma proposta cultural. Instrução: ${field.instruction}\n\nResumo aprovado pelo usuário:\n${summary}`;
+    const generated = await generateWithCodex(prompt);
+    if (generated) { proposal$('#field-input').value = generated; setProposalMessage('Campo gerado pelo Codex. Revise e altere livremente.'); }
+    else setProposalMessage('O bridge do Codex não está conectado. Escreva ou cole a resposta deste campo; ela será preservada.', 'warning');
+  } catch (error) { setProposalMessage(`Não foi possível consultar o bridge do Codex: ${error.message}`, 'error'); }
+  finally { button.disabled = false; button.textContent = 'Gerar / refazer'; }
+});
+proposal$('#next-field').addEventListener('click', () => {
+  proposalState.values[currentField().id] = proposal$('#field-input').value.trim();
+  if (proposalState.fieldIndex === formFields.length - 1) { setProposalMessage('Todos os campos foram salvos nesta sessão. Você pode voltar e revisar qualquer um deles.', 'success'); return; }
+  proposalState.fieldIndex += 1; renderField(); setProposalMessage('Campo salvo. Revise este próximo campo antes de avançar.');
+});
+refreshBridgeStatus();
+
 const tasks = [
   { id: 'legislacao', title: 'Conferir a legislação central da Lei Rouanet', meta: 'Lei 8.313/1991, Decreto 11.453/2023 e IN MinC 29/2026', tag: 'legislação', status: 'pending' },
   { id: 'projetos', title: 'Ler os projetos anteriores reunidos na pasta Vale', meta: 'Selecionar ideias, textos e estruturas que podem ser reaproveitados', tag: 'projetos', status: 'pending' },

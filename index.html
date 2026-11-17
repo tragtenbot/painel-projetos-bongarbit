@@ -18,6 +18,42 @@
       <div class="hero-mark" aria-hidden="true">◌</div>
     </header>
 
+    <section class="proposal-workspace panel" aria-labelledby="proposal-title">
+      <div class="workspace-head">
+        <div>
+          <p class="kicker">PROPOSTA / FLUXO GUIADO</p>
+          <h2 id="proposal-title">Transforme uma ideia em formulário</h2>
+          <p class="workspace-intro">Escreva livremente. Depois revise o resumo e avance campo por campo, mantendo o controle sobre cada texto.</p>
+        </div>
+        <span id="bridge-status" class="bridge-status">Codex bridge não conectado</span>
+      </div>
+      <div class="steps" aria-label="Etapas da proposta">
+        <span class="step active" data-step="description">1 · descrição</span>
+        <span class="step" data-step="summary">2 · resumo</span>
+        <span class="step" data-step="fields">3 · formulário</span>
+      </div>
+
+      <div id="proposal-description" class="proposal-stage">
+        <label class="field-label" for="proposal-input">Descrição livre da proposta</label>
+        <textarea id="proposal-input" rows="8" placeholder="Descreva a proposta do jeito que ela está na sua cabeça: contexto, público, atividades, território, equipe, objetivos e o que mais parecer importante."></textarea>
+        <div class="stage-actions"><span class="helper">Nada é enviado para uma API neste modo.</span><button id="generate-summary" class="primary">Gerar resumo</button></div>
+      </div>
+
+      <div id="proposal-summary" class="proposal-stage hidden">
+        <label class="field-label" for="summary-input">Resumo editável</label>
+        <textarea id="summary-input" rows="8" placeholder="O resumo gerado aparecerá aqui para você revisar."></textarea>
+        <div class="stage-actions"><button id="back-description" class="secondary">Voltar</button><button id="generate-first-field" class="primary">Salvar resumo e começar formulário</button></div>
+      </div>
+
+      <div id="proposal-fields" class="proposal-stage hidden">
+        <div class="field-progress"><span id="field-position">Campo 1 de 10</span><span id="field-name">Justificativa</span></div>
+        <label class="field-label" for="field-input">Texto do campo</label>
+        <textarea id="field-input" rows="9" placeholder="Revise ou escreva a resposta deste campo."></textarea>
+        <div class="stage-actions"><button id="back-summary" class="secondary">Voltar ao resumo</button><div class="field-actions"><button id="generate-field" class="secondary">Gerar / refazer</button><button id="next-field" class="primary">Salvar e próximo</button></div></div>
+      </div>
+      <p id="proposal-message" class="proposal-message" role="status"></p>
+    </section>
+
     <section class="summary" aria-label="Resumo">
       <div class="metric"><strong id="pending-count">0</strong><span>pendentes</span></div>
       <div class="metric"><strong id="done-count">0</strong><span>concluídas</span></div>
@@ -46,7 +82,7 @@
       </aside>
     </div>
 
-    <footer><span>Atualizado manualmente a partir do trabalho no Drive.</span><a href="https://github.com/jtragtenberg/painel-projetos-bongarbit" target="_blank" rel="noreferrer">ver repositório ↗</a></footer>
+    <footer><span>Atualizado manualmente a partir do trabalho no Drive.</span><a href="https://github.com/tragtenbot/painel-projetos-bongarbit" target="_blank" rel="noreferrer">ver repositório ↗</a></footer>
   </main>
   <script src="./app.js"></script>
 </body>
