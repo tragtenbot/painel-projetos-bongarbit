@@ -13,7 +13,8 @@ const formFields = [
   { id: 'contrapartida', name: 'Contrapartida social', instruction: 'Descreva a ação de retorno público, formativo ou comunitário da proposta.' },
   { id: 'equipe', name: 'Equipe e responsabilidades', instruction: 'Apresente as funções da equipe e como cada pessoa contribui para a execução.' }
 ];
-const proposalState = { stage: 'description', fieldIndex: 0, values: {}, bridge: false };
+const proposalState = { stage: 'description', fieldIndex: 0, values: {}, bridge: false, projectId: '' };
+const projectState = { id: '', name: '' };
 const proposal$ = (selector) => document.querySelector(selector);
 const setProposalMessage = (message, tone = '') => { const el = proposal$('#proposal-message'); el.textContent = message; el.dataset.tone = tone; };
 const showStage = (stage) => {
@@ -34,10 +35,17 @@ const localDraft = (description) => {
   if (!clean) return '';
   return `Esta proposta parte de ${clean.charAt(0).toLowerCase() + clean.slice(1)}. A iniciativa articula criação, formação e participação coletiva, valorizando o território, os saberes envolvidos e a produção de resultados culturais acessíveis ao público.`;
 };
+function draftContext() {
+  const fields = { ...proposalState.values };
+  if (proposalState.stage === 'fields') fields[currentField().id] = proposal$('#field-input').value;
+  const parts = [`DESCRIÇÃO INICIAL:\n${proposal$('#proposal-input').value || ''}`, `RESUMO ATUAL:\n${proposal$('#summary-input').value || ''}`];
+  for (const field of formFields) if (fields[field.id]) parts.push(`CAMPO ${field.name}:\n${fields[field.id]}`);
+  return parts.join('\n\n').slice(0, 60000);
+}
 async function generateWithCodex(prompt) {
   const token = bridgeToken$();
   if (!token) return null;
-  const response = await fetch(`${BRIDGE_URL}/generate`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ prompt }) });
+  const response = await fetch(`${BRIDGE_URL}/generate`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ prompt, draft_context: draftContext(), project_id: projectState.id || undefined }) });
   if (!response.ok) { const data = await response.json().catch(() => ({})); throw new Error(data.error || `bridge HTTP ${response.status}`); }
   const data = await response.json();
   return data.text || data.output || '';
@@ -48,7 +56,52 @@ async function refreshBridgeStatus() {
 }
 const savedBridgeToken = localStorage.getItem(BRIDGE_TOKEN_KEY);
 if (savedBridgeToken) proposal$('#bridge-token').value = savedBridgeToken;
-proposal$('#bridge-token').addEventListener('change', () => { localStorage.setItem(BRIDGE_TOKEN_KEY, bridgeToken$()); setProposalMessage('Token salvo somente neste navegador.'); });
+proposal$('#bridge-token').addEventListener('change', () => { localStorage.setItem(BRIDGE_TOKEN_KEY, bridgeToken$()); setProposalMessage('Token salvo somente neste navegador.'); loadProjects(); });
+function projectText() {
+  if (proposalState.stage === 'fields') proposalState.values[currentField().id] = proposal$('#field-input').value;
+  return JSON.stringify({ description: proposal$('#proposal-input').value, summary: proposal$('#summary-input').value, fields: proposalState.values, savedAt: new Date().toISOString() }, null, 2);
+}
+function clearProject() {
+  projectState.id = ''; projectState.name = ''; proposalState.projectId = ''; proposalState.values = {}; proposalState.fieldIndex = 0;
+  proposal$('#project-title').value = ''; proposal$('#project-select').value = ''; proposal$('#proposal-input').value = ''; proposal$('#summary-input').value = ''; proposal$('#field-input').value = ''; showStage('description'); setProposalMessage('Novo projeto iniciado.');
+}
+async function loadProjects() {
+  const token = bridgeToken$(); if (!token) return;
+  try {
+    const r = await fetch(`${BRIDGE_URL}/projects`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!r.ok) return;
+    const data = await r.json(); const select = proposal$('#project-select');
+    select.innerHTML = '<option value="">Novo projeto</option>' + data.projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+  } catch (_) {}
+}
+async function loadProject(id) {
+  if (!id) return clearProject();
+  try {
+    const r = await fetch(`${BRIDGE_URL}/projects/${encodeURIComponent(id)}`, { headers: { Authorization: `Bearer ${bridgeToken$()}` } });
+    if (!r.ok) throw new Error('não foi possível abrir o projeto');
+    const p = await r.json(); let data;
+    try { data = JSON.parse(p.text); } catch (_) { data = { description: p.text, summary: '', fields: {} }; }
+    projectState.id = p.id; projectState.name = p.name; proposalState.projectId = p.id; proposalState.values = data.fields || {};
+    proposal$('#project-title').value = p.name; proposal$('#proposal-input').value = data.description || ''; proposal$('#summary-input').value = data.summary || '';
+    proposalState.fieldIndex = 0; renderField(); showStage(data.summary ? 'summary' : 'description'); setProposalMessage('Projeto carregado do Google Drive.');
+  } catch (error) { setProposalMessage(error.message, 'error'); }
+}
+async function saveProject() {
+  const token = bridgeToken$(); if (!token) return setProposalMessage('Informe o token do bridge antes de salvar.', 'error');
+  const name = proposal$('#project-title').value.trim() || 'Projeto Bongarbit';
+  const method = projectState.id ? 'PUT' : 'POST'; const url = projectState.id ? `${BRIDGE_URL}/projects/${encodeURIComponent(projectState.id)}` : `${BRIDGE_URL}/projects`;
+  const button = proposal$('#save-project'); button.disabled = true; button.textContent = 'Salvando…';
+  try {
+    const r = await fetch(url, { method, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ name, text: projectText() }) });
+    const data = await r.json(); if (!r.ok) throw new Error(data.error || `Drive HTTP ${r.status}`);
+    projectState.id = data.id; projectState.name = data.name; proposalState.projectId = data.id; proposal$('#project-title').value = data.name;
+    await loadProjects(); proposal$('#project-select').value = data.id; setProposalMessage('Projeto salvo no Google Drive.', 'success');
+  } catch (error) { setProposalMessage(`Não foi possível salvar no Drive: ${error.message}`, 'error'); }
+  finally { button.disabled = false; button.textContent = 'Salvar no Drive'; }
+}
+proposal$('#project-select').addEventListener('change', event => loadProject(event.target.value));
+proposal$('#new-project').addEventListener('click', clearProject);
+proposal$('#save-project').addEventListener('click', saveProject);
 proposal$('#generate-summary').addEventListener('click', async () => {
   const description = proposal$('#proposal-input').value.trim();
   if (!description) return setProposalMessage('Escreva uma descrição antes de gerar o resumo.', 'error');

@@ -33,6 +33,11 @@ h1 span { color: var(--yellow); }
 .bridge-access { display: flex; align-items: center; gap: 10px; margin-top: 13px; color: var(--muted); font-size: 12px; }
 .bridge-access label span { opacity: .7; }
 .bridge-access input { flex: 1; max-width: 520px; min-width: 180px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 8px; color: var(--text); background: rgba(0,0,0,.2); }
+.project-toolbar { display: flex; align-items: end; gap: 8px; flex-wrap: wrap; margin-top: 13px; }
+.project-toolbar label { display: flex; flex-direction: column; gap: 5px; color: var(--muted); font-size: 11px; }
+.project-toolbar input, .project-toolbar select { min-height: 36px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--text); background: rgba(0,0,0,.2); }
+.project-toolbar input { min-width: 220px; }
+.project-toolbar select { min-width: 180px; }
 
 .step { color: #747d8c; font: 600 11px/1.2 ui-monospace, monospace; text-transform: uppercase; }
 .step.active { color: var(--blue); }

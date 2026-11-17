@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Small authenticated HTTP bridge: browser -> Hermes -> OpenAI Codex OAuth."""
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-import json, os, subprocess, threading, time
+import json, os, subprocess, threading, time, sys
+from urllib.parse import unquote
+sys.path.insert(0, "/opt/codex-bridge")
+import drive_context
 
 HOST = "127.0.0.1"
 PORT = int(os.getenv("CODEX_BRIDGE_PORT", "8789"))
@@ -55,32 +58,60 @@ class Handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
         self._headers(204)
 
+    def _authorized(self):
+        return self.headers.get("Authorization") == "Bearer " + TOKEN
+
+    def _read_json(self):
+        length = int(self.headers.get("Content-Length", "0"))
+        if length > MAX_PROMPT * 4:
+            raise ValueError("pedido muito grande")
+        return json.loads(self.rfile.read(length))
+
     def do_GET(self):
         if self.path == "/health":
             self._reply(200, {"ok": True, "service": "codex-bridge", "model": MODEL})
-        else:
-            self._reply(404, {"error": "not_found"})
+            return
+        if not self._authorized():
+            self._reply(401, {"error": "unauthorized"})
+            return
+        if self.path == "/projects":
+            self._reply(200, {"projects": drive_context.project_files()})
+            return
+        if self.path.startswith("/projects/"):
+            try:
+                self._reply(200, drive_context.get_project(unquote(self.path.split("/", 2)[2])))
+            except Exception as exc:
+                self._reply(404, {"error": str(exc)})
+            return
+        self._reply(404, {"error": "not_found"})
 
     def do_POST(self):
-        if self.path != "/generate":
-            self._reply(404, {"error": "not_found"})
-            return
-        expected = "Bearer " + TOKEN
-        if self.headers.get("Authorization") != expected:
+        if not self._authorized():
             self._reply(401, {"error": "unauthorized"})
             return
         try:
-            length = int(self.headers.get("Content-Length", "0"))
-            if length > MAX_PROMPT * 2:
-                raise ValueError("prompt muito grande")
-            data = json.loads(self.rfile.read(length))
-            prompt = data.get("prompt", "")
-            if not isinstance(prompt, str) or not prompt.strip():
-                raise ValueError("prompt ausente")
-            if len(prompt) > MAX_PROMPT:
-                raise ValueError("prompt muito grande")
+            data = self._read_json()
         except (ValueError, json.JSONDecodeError) as exc:
             self._reply(400, {"error": str(exc)})
+            return
+        if self.path == "/projects":
+            try:
+                name = str(data.get("name", "Projeto sem título")).strip()[:180]
+                text = str(data.get("text", ""))
+                if not text.strip(): raise ValueError("projeto vazio")
+                self._reply(201, drive_context.create_project(name, text))
+            except Exception as exc:
+                self._reply(502, {"error": str(exc)})
+            return
+        if self.path != "/generate":
+            self._reply(404, {"error": "not_found"})
+            return
+        prompt = data.get("prompt", "")
+        if not isinstance(prompt, str) or not prompt.strip():
+            self._reply(400, {"error": "prompt ausente"})
+            return
+        if len(prompt) > MAX_PROMPT:
+            self._reply(400, {"error": "prompt muito grande"})
             return
         global _last_request
         with _lock:
@@ -90,10 +121,29 @@ class Handler(BaseHTTPRequestHandler):
                 return
             _last_request = now
         try:
-            text = run_hermes(prompt.strip())
-            self._reply(200, {"text": text, "model": MODEL})
+            project_text = ""
+            if data.get("project_id"):
+                project_text = drive_context.get_project(str(data["project_id"])).get("text", "")
+            full_prompt = drive_context.context_prompt(prompt.strip(), project_text, str(data.get("draft_context", "")))
+            text = run_hermes(full_prompt)
+            self._reply(200, {"text": text, "model": MODEL, "context_sources": drive_context.load_context().get("source_count", 0)})
         except subprocess.TimeoutExpired:
             self._reply(504, {"error": "o Codex demorou mais que o limite configurado"})
+        except Exception as exc:
+            self._reply(502, {"error": str(exc)})
+
+    def do_PUT(self):
+        if not self._authorized():
+            self._reply(401, {"error": "unauthorized"})
+            return
+        if not self.path.startswith("/projects/"):
+            self._reply(404, {"error": "not_found"})
+            return
+        try:
+            data = self._read_json()
+            project_id = unquote(self.path.split("/", 2)[2])
+            result = drive_context.update_project(project_id, str(data.get("name", "Projeto sem título"))[:180], str(data.get("text", "")))
+            self._reply(200, result)
         except Exception as exc:
             self._reply(502, {"error": str(exc)})
 
