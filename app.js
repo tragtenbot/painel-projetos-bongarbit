@@ -1,3 +1,6 @@
+const BRIDGE_URL = 'https://agenda.rec.br/codex-bridge';
+const BRIDGE_TOKEN_KEY = 'bongarbit_codex_bridge_token';
+const bridgeToken$ = () => proposal$('#bridge-token').value.trim();
 const formFields = [
   { id: 'justificativa', name: 'Justificativa', instruction: 'Explique por que a proposta é necessária, qual problema enfrenta e por que este território e público são importantes.' },
   { id: 'objetivo-geral', name: 'Objetivo geral', instruction: 'Formule o objetivo geral da proposta em uma frase clara, começando por um verbo de ação.' },
@@ -32,16 +35,20 @@ const localDraft = (description) => {
   return `Esta proposta parte de ${clean.charAt(0).toLowerCase() + clean.slice(1)}. A iniciativa articula criação, formação e participação coletiva, valorizando o território, os saberes envolvidos e a produção de resultados culturais acessíveis ao público.`;
 };
 async function generateWithCodex(prompt) {
-  if (!proposalState.bridge) return null;
-  const response = await fetch('http://127.0.0.1:8787/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt }) });
-  if (!response.ok) throw new Error(`bridge HTTP ${response.status}`);
+  const token = bridgeToken$();
+  if (!token) return null;
+  const response = await fetch(`${BRIDGE_URL}/generate`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ prompt }) });
+  if (!response.ok) { const data = await response.json().catch(() => ({})); throw new Error(data.error || `bridge HTTP ${response.status}`); }
   const data = await response.json();
   return data.text || data.output || '';
 }
 async function refreshBridgeStatus() {
-  try { const response = await fetch('http://127.0.0.1:8787/health', { signal: AbortSignal.timeout(800) }); proposalState.bridge = response.ok; } catch (_) { proposalState.bridge = false; }
-  const status = proposal$('#bridge-status'); status.textContent = proposalState.bridge ? 'Codex bridge conectado' : 'Codex bridge não conectado'; status.classList.toggle('connected', proposalState.bridge);
+  try { const response = await fetch(`${BRIDGE_URL}/health`, { signal: AbortSignal.timeout(3000) }); proposalState.bridge = response.ok; } catch (_) { proposalState.bridge = false; }
+  const status = proposal$('#bridge-status'); status.textContent = proposalState.bridge ? 'Codex bridge online' : 'Codex bridge indisponível'; status.classList.toggle('connected', proposalState.bridge);
 }
+const savedBridgeToken = localStorage.getItem(BRIDGE_TOKEN_KEY);
+if (savedBridgeToken) proposal$('#bridge-token').value = savedBridgeToken;
+proposal$('#bridge-token').addEventListener('change', () => { localStorage.setItem(BRIDGE_TOKEN_KEY, bridgeToken$()); setProposalMessage('Token salvo somente neste navegador.'); });
 proposal$('#generate-summary').addEventListener('click', async () => {
   const description = proposal$('#proposal-input').value.trim();
   if (!description) return setProposalMessage('Escreva uma descrição antes de gerar o resumo.', 'error');

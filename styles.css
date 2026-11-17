@@ -30,7 +30,10 @@ h1 span { color: var(--yellow); }
 .workspace-intro { max-width: 640px; margin: 9px 0 0; color: var(--muted); line-height: 1.5; }
 .bridge-status { flex: none; color: var(--yellow); border: 1px solid rgba(245,202,114,.35); border-radius: 99px; padding: 8px 10px; font: 600 10px/1.2 ui-monospace, monospace; }
 .bridge-status.connected { color: var(--green); border-color: rgba(140,224,176,.35); }
-.steps { display: flex; gap: 7px; margin: 22px 0 17px; padding-bottom: 13px; border-bottom: 1px solid var(--line); }
+.bridge-access { display: flex; align-items: center; gap: 10px; margin-top: 13px; color: var(--muted); font-size: 12px; }
+.bridge-access label span { opacity: .7; }
+.bridge-access input { flex: 1; max-width: 520px; min-width: 180px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 8px; color: var(--text); background: rgba(0,0,0,.2); }
+
 .step { color: #747d8c; font: 600 11px/1.2 ui-monospace, monospace; text-transform: uppercase; }
 .step.active { color: var(--blue); }
 .proposal-stage.hidden { display: none; }
@@ -78,4 +81,4 @@ button:hover, button.active { color: var(--text); border-color: var(--blue); bac
 .empty { padding: 22px 8px; color: var(--muted); font-size: 14px; }
 footer { display: flex; justify-content: space-between; gap: 12px; margin-top: 16px; color: #747d8c; font-size: 11px; }
 footer a { color: var(--blue); text-decoration: none; }
-@media (max-width: 760px) { .shell { width: min(100% - 22px, 620px); padding-top: 30px; } .hero { padding-bottom: 28px; } .hero-mark { display: none; } .summary { gap: 7px; } .metric { padding: 13px 12px; } .metric strong { font-size: 23px; } .layout { grid-template-columns: 1fr; } .panel { padding: 15px; } footer { flex-direction: column; } }
+@media (max-width: 760px) { .shell { width: min(100% - 22px, 620px); padding-top: 30px; } .hero { padding-bottom: 28px; } .hero-mark { display: none; } .summary { gap: 7px; } .metric { padding: 13px 12px; } .metric strong { font-size: 23px; } .layout { grid-template-columns: 1fr; } .panel { padding: 15px; } .workspace-head, .bridge-access, .stage-actions { align-items: stretch; flex-direction: column; } .bridge-status { align-self: flex-start; } .field-actions { flex-wrap: wrap; } footer { flex-direction: column; } }
