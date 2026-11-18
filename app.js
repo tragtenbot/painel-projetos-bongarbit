@@ -122,22 +122,37 @@ async function loadProject(id) {
     proposalState.fieldIndex = 0; renderField(); showStage(data.summary ? 'summary' : 'description'); await loadProjectArtifacts(p.id); setProposalMessage('Projeto carregado do Google Drive.');
   } catch (error) { setProposalMessage(error.message, 'error'); }
 }
-async function saveProject() {
-  const token = bridgeToken$(); if (!token) return setProposalMessage('Informe o token do bridge antes de salvar.', 'error');
+async function saveProject(options = {}) {
+  const { silent = false } = options;
+  const token = bridgeToken$(); if (!token) { if (!silent) setProposalMessage('Informe o token do bridge antes de salvar.', 'error'); return false; }
   const name = proposal$('#project-title').value.trim() || 'Projeto Bongarbit';
   const method = projectState.id ? 'PUT' : 'POST'; const url = projectState.id ? `${BRIDGE_URL}/projects/${encodeURIComponent(projectState.id)}` : `${BRIDGE_URL}/projects`;
-  const button = proposal$('#save-project'); button.disabled = true; button.textContent = 'Salvando…';
+  const button = proposal$('#save-project'); if (!silent) { button.disabled = true; button.textContent = 'Salvando…'; }
   try {
     const r = await fetch(url, { method, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ name, text: projectText() }) });
     const data = await r.json(); if (!r.ok) throw new Error(data.error || `Drive HTTP ${r.status}`);
     projectState.id = data.id; projectState.name = data.name; proposalState.projectId = data.id; proposal$('#project-title').value = data.name;
-    await loadProjects(); proposal$('#project-select').value = data.id; setProposalMessage('Projeto salvo no Google Drive.', 'success');
-  } catch (error) { setProposalMessage(`Não foi possível salvar no Drive: ${error.message}`, 'error'); }
-  finally { button.disabled = false; button.textContent = 'Salvar no Drive'; }
+    await loadProjects(); proposal$('#project-select').value = data.id;
+    if (!silent) setProposalMessage('Projeto salvo no Google Drive.', 'success');
+    return true;
+  } catch (error) { if (!silent) setProposalMessage(`Não foi possível salvar no Drive: ${error.message}`, 'error'); return false; }
+  finally { if (!silent) { button.disabled = false; button.textContent = 'Salvar no Drive'; } }
+}
+let autosaveTimer = null;
+function scheduleAutosave() {
+  window.clearTimeout(autosaveTimer);
+  autosaveTimer = window.setTimeout(async () => {
+    if (!bridgeToken$()) return;
+    const hasContent = proposal$('#proposal-input').value.trim() || proposal$('#summary-input').value.trim() || Object.values(proposalState.values).some(Boolean);
+    if (!hasContent) return;
+    const saved = await saveProject({ silent: true });
+    if (saved) setProposalMessage('Alterações salvas automaticamente no Google Drive.', 'success');
+  }, 1200);
 }
 proposal$('#project-select').addEventListener('change', event => loadProject(event.target.value));
 proposal$('#new-project').addEventListener('click', clearProject);
 proposal$('#save-project').addEventListener('click', saveProject);
+['project-title', 'proposal-input', 'summary-input', 'field-input'].forEach(id => proposal$(`#${id}`).addEventListener('input', scheduleAutosave));
 proposal$('#generate-summary').addEventListener('click', async () => {
   const description = proposal$('#proposal-input').value.trim();
   if (!description) return setProposalMessage('Escreva uma descrição antes de gerar o resumo.', 'error');
@@ -205,7 +220,14 @@ const tasks = [
   { id: 'contrapartida', title: 'Fechar contrapartidas sociais e ações de difusão', meta: 'Descrever ações abertas, circulação, formação, gratuidade e retorno público', tag: 'contrapartida', source: 'Regulamento / Ficha / Projetos anteriores', status: 'pending' },
   { id: 'resultados', title: 'Definir produtos, metas e indicadores verificáveis', meta: 'Relacionar entregas, público alcançado, registros e meios de comprovação', tag: 'resultados', source: 'Formulário / Relatórios / Avaliação de resultados', status: 'pending' },
   { id: 'salic-compliance', title: 'Conferir exigências de SALIC e prestação de contas', meta: 'Mapear execução, monitoramento, comprovação, arquivos e responsáveis pelo registro', tag: 'SALIC', source: 'Índice SALIC / IN MinC 29/2026 / Compliance', status: 'pending' },
-  { id: 'revisao-final', title: 'Fazer revisão final cruzada antes do envio', meta: 'Verificar se texto, orçamento, cronograma, documentos e anexos dizem a mesma coisa', tag: 'revisão', source: 'Todos os documentos do edital', status: 'pending' }
+  { id: 'revisao-final', title: 'Fazer revisão final cruzada antes do envio', meta: 'Verificar se texto, orçamento, cronograma, documentos e anexos dizem a mesma coisa', tag: 'revisão', source: 'Todos os documentos do edital', status: 'pending' },
+  { id: 'legislacao', title: 'Conferir a legislação central da Lei Rouanet', meta: 'Lei 8.313/1991, Decreto 11.453/2023 e IN MinC 29/2026', tag: 'legislação', source: 'Lista anterior de tarefas', status: 'pending' },
+  { id: 'projetos', title: 'Ler os projetos anteriores reunidos na pasta Vale', meta: 'Selecionar ideias, textos e estruturas que podem ser reaproveitados', tag: 'projetos', source: 'Lista anterior de tarefas', status: 'pending' },
+  { id: 'base', title: 'Definir o projeto-base para a próxima proposta', meta: 'Cruzar Ficha Vale, contexto Rouanet e experiências do Bongarbit', tag: 'decisão', source: 'Lista anterior de tarefas', status: 'pending' },
+  { id: 'formulario', title: 'Revisar o formulário e o plano de preenchimento', meta: 'Identificar campos prontos, lacunas e informações que dependem de confirmação', tag: 'formulário', source: 'Lista anterior de tarefas', status: 'pending' },
+  { id: 'orcamento', title: 'Conferir orçamento e rubricas', meta: 'Usar a planilha de produção do SALIC como referência, sem duplicar versões', tag: 'orçamento', source: 'Lista anterior de tarefas', status: 'pending' },
+  { id: 'anexos', title: 'Validar documentos e anexos do proponente', meta: 'CNPJ, estatuto, portfólio, currículos e comprovações', tag: 'anexos', source: 'Lista anterior de tarefas', status: 'pending' },
+  { id: 'indice', title: 'Manter o índice de projetos e legislação atualizado', meta: 'Adicionar novos documentos sem criar atalhos de pastas', tag: 'organização', source: 'Lista anterior de tarefas', status: 'pending' }
 ];
 
 
