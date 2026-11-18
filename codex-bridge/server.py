@@ -2,7 +2,7 @@
 """Small authenticated HTTP bridge: browser -> Hermes -> OpenAI Codex OAuth."""
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json, os, subprocess, threading, time, sys
-from urllib.parse import unquote
+from urllib.parse import unquote, urlsplit
 sys.path.insert(0, "/opt/codex-bridge")
 import drive_context
 
@@ -68,17 +68,18 @@ class Handler(BaseHTTPRequestHandler):
         return json.loads(self.rfile.read(length))
 
     def do_GET(self):
-        if self.path == "/health":
+        path = urlsplit(self.path).path
+        if path == "/health":
             self._reply(200, {"ok": True, "service": "codex-bridge", "model": MODEL})
             return
         if not self._authorized():
             self._reply(401, {"error": "unauthorized"})
             return
-        if self.path == "/projects":
+        if path == "/projects":
             self._reply(200, {"projects": drive_context.project_files()})
             return
-        if self.path.startswith("/projects/"):
-            project_path = self.path.split("/", 3)
+        if path.startswith("/projects/"):
+            project_path = path.split("/", 3)
             try:
                 project_id = unquote(project_path[2])
                 if len(project_path) == 4 and project_path[3] == "qa":
