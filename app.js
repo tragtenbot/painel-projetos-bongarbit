@@ -51,7 +51,7 @@ async function generateWithCodex(prompt) {
   return data.text || data.output || '';
 }
 async function refreshBridgeStatus() {
-  try { const response = await fetch(`${BRIDGE_URL}/health`, { signal: AbortSignal.timeout(3000) }); proposalState.bridge = response.ok; } catch (_) { proposalState.bridge = false; }
+  try { const response = await fetch(`${BRIDGE_URL}/health?ts=${Date.now()}`, { cache: 'no-store', signal: AbortSignal.timeout(5000) }); proposalState.bridge = response.ok; } catch (_) { proposalState.bridge = false; }
   const status = proposal$('#bridge-status'); status.textContent = proposalState.bridge ? 'Codex bridge online' : 'Codex bridge indisponível'; status.classList.toggle('connected', proposalState.bridge);
 }
 const savedBridgeToken = localStorage.getItem(BRIDGE_TOKEN_KEY);
