@@ -24,9 +24,14 @@ const showStage = (stage) => {
   document.querySelectorAll('.step').forEach(step => step.classList.toggle('active', step.dataset.step === stage));
 };
 const currentField = () => formFields[proposalState.fieldIndex];
+const renderSavedDescription = () => {
+  const preview = proposal$('#saved-description-preview');
+  if (preview) preview.textContent = proposal$('#proposal-input').value.trim() || 'Nenhuma descrição salva.';
+};
 const renderFieldsContext = () => {
   const description = proposal$('#proposal-input').value.trim();
   const summary = proposal$('#summary-input').value.trim();
+  renderSavedDescription();
   proposal$('#fields-description-preview').textContent = description || 'Nenhuma descrição salva.';
   proposal$('#fields-summary-preview').textContent = summary || 'Nenhum resumo salvo.';
 };
@@ -127,7 +132,8 @@ async function loadProject(id) {
     try { data = JSON.parse(p.text); } catch (_) { data = { description: p.text, summary: '', fields: {} }; }
     projectState.id = p.id; projectState.name = p.name; proposalState.projectId = p.id; proposalState.values = data.fields || {};
     proposal$('#project-title').value = p.name; proposal$('#proposal-input').value = data.description || ''; proposal$('#summary-input').value = data.summary || '';
-    proposalState.fieldIndex = 0; renderField(); showStage(data.summary ? 'summary' : 'description'); await loadProjectArtifacts(p.id); setProposalMessage('Projeto carregado do Google Drive.');
+    renderSavedDescription();
+    proposalState.fieldIndex = 0; renderField(); showStage(data.fields && Object.values(data.fields).some(Boolean) ? 'fields' : data.summary ? 'summary' : 'description'); await loadProjectArtifacts(p.id); setProposalMessage('Projeto carregado do Google Drive. Descrição e resumo salvos foram preservados; nenhuma geração foi executada.');
   } catch (error) { setProposalMessage(error.message, 'error'); }
 }
 async function saveProject(options = {}) {
@@ -176,6 +182,7 @@ proposal$('#generate-summary').addEventListener('click', async () => {
   finally { button.disabled = false; button.textContent = 'Gerar resumo'; }
 });
 proposal$('#back-description').addEventListener('click', () => showStage('description'));
+proposal$('#edit-description-from-summary').addEventListener('click', () => { renderSavedDescription(); showStage('description'); });
 proposal$('#generate-first-field').addEventListener('click', () => { proposalState.fieldIndex = 0; proposalState.values.summary = proposal$('#summary-input').value.trim(); scheduleAutosave(); renderField(); showStage('fields'); setProposalMessage('Resumo salvo. Agora você pode gerar ou editar cada campo antes de avançar.'); });
 proposal$('#back-summary').addEventListener('click', () => { proposalState.values[currentField().id] = proposal$('#field-input').value; scheduleAutosave(); proposal$('#summary-input').value = proposalState.values.summary || proposal$('#summary-input').value; showStage('summary'); });
 proposal$('#edit-description-from-fields').addEventListener('click', () => { proposalState.values[currentField().id] = proposal$('#field-input').value.trim(); scheduleAutosave(); showStage('description'); });
