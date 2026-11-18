@@ -149,7 +149,7 @@ async function saveProject(options = {}) {
     await loadProjects(); proposal$('#project-select').value = data.id;
     if (!silent) setProposalMessage('Projeto salvo no Google Drive.', 'success');
     return true;
-  } catch (error) { if (!silent) setProposalMessage(`Não foi possível salvar no Drive: ${error.message}`, 'error'); return false; }
+  } catch (error) { setProposalMessage(`Não foi possível salvar no Drive: ${error.message}`, 'error'); return false; }
   finally { if (!silent) { button.disabled = false; button.textContent = 'Salvar no Drive'; } }
 }
 let autosaveTimer = null;
