@@ -203,6 +203,8 @@ $('#send-chat').addEventListener('click', async () => {
   finally { button.disabled = false; button.textContent = 'Perguntar'; }
 });
 refreshBridgeStatus();
+// Carrega os projetos existentes assim que a página abre, sem exigir um novo salvamento.
+loadProjects();
 
 const tasks = [
   { id: 'edital-leitura', title: 'Ler edital, regulamento e FAQ da Transpetro', meta: 'Registrar prazo, linha temática, critérios, limites e documentos exigidos', tag: 'edital', source: 'Edital / Regulamento / FAQ', status: 'pending' },
