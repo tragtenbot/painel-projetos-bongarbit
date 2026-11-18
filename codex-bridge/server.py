@@ -148,7 +148,7 @@ class Handler(BaseHTTPRequestHandler):
             project_text = ""
             if data.get("project_id"):
                 project_text = drive_context.get_project(str(data["project_id"])).get("text", "")
-            full_prompt = drive_context.context_prompt(prompt.strip(), project_text, str(data.get("draft_context", "")))
+            full_prompt = drive_context.context_prompt(prompt.strip(), project_text, str(data.get("draft_context", "")), str(data.get("scope", "all")))
             text = run_hermes(full_prompt)
             self._reply(200, {"text": text, "model": MODEL, "context_sources": drive_context.load_context().get("source_count", 0)})
         except subprocess.TimeoutExpired:

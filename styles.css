@@ -107,6 +107,13 @@ h1 span { color: var(--terracota-queimada); }
 .secondary { color: var(--text-strong); background: var(--surface-card); }
 .secondary:hover { background: var(--grafite-08); }
 .primary:active, .secondary:active, button:active { transform: translate(2px, 2px); box-shadow: none; }
+.field-overview { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 14px 0 18px; }
+.field-preview { display: block; width: 100%; padding: 10px; border: 1px solid var(--border-hairline); border-radius: 0; background: var(--surface-card); color: var(--text-strong); text-align: left; box-shadow: none; }
+.field-preview:hover, .field-preview.active { border-color: var(--terracota-queimada); background: var(--grafite-08); }
+.field-preview-heading { display: flex; justify-content: space-between; gap: 8px; font-size: var(--fs-micro); line-height: var(--lh-dense); }
+.field-preview-heading > span { color: var(--text-muted); text-transform: uppercase; letter-spacing: .08em; }
+.field-preview.filled .field-preview-heading > span { color: var(--verde-baoba); }
+.field-preview-text { display: block; margin-top: 6px; color: var(--text-body); font-size: var(--fs-small); line-height: var(--lh-dense); }
 .saved-description-box { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 16px; padding: 13px; border: 1px solid var(--border-hairline); background: var(--surface-sunken); }
 .saved-description-box p:last-child { max-height: 120px; margin: 0; overflow-y: auto; white-space: pre-wrap; color: var(--text-body); font-size: var(--fs-small); line-height: var(--lh-dense); }
 .proposal-context { margin-bottom: 20px; padding: 14px; border: 1px solid var(--border-hairline); background: var(--surface-sunken); }
@@ -177,7 +184,7 @@ footer a { color: var(--text-link); }
   .workspace-head, .bridge-access, .stage-actions { align-items: stretch; flex-direction: column; }
   .bridge-status { align-self: flex-start; }
   .field-actions { flex-wrap: wrap; }
-  .context-grid { grid-template-columns: 1fr; }
+  .context-grid, .field-overview { grid-template-columns: 1fr; }
   .context-heading, .saved-description-box { flex-direction: column; }
   .task { grid-template-columns: auto 1fr; }
   .task .tag { grid-column: 2; }

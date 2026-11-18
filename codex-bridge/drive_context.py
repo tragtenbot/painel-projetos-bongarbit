@@ -22,6 +22,7 @@ CACHE_PATH = Path(os.getenv("CODEX_CONTEXT_CACHE", "/root/.hermes/codex-bridge-c
 MAX_SOURCE_CHARS = 28000
 MAX_CONTEXT_CHARS = 52000
 GRAPH_NAME = os.getenv("CODEX_GRAPH_NAME", "graph.json")
+CURRENT_EDITAL_RE = re.compile(os.getenv("CODEX_CURRENT_EDITAL_PATTERN", r"edital|regulamento|faq|formul[aá]rio|plano de preenchimento|ficha do projeto|chamada.*vale|instituto cultural vale"), re.I)
 
 EXCLUDE_RE = re.compile(r"(dados pessoais|rg novo|copia_cpf|cartao_cnpj|cnpj\.pdf|cpf|notas fiscais|alterac.?o.*batebit|ata_eleicao|confirmacao de inscricao|estatuto|contrato social|ccmei)", re.I)
 PRIORITY_RE = re.compile(r"(edital|regulamento|faq|formulario|lei|decreto|resolu|sumula|in_min|manual|projeto|ficha|contexto|possibilidades|briefing|bongarbit|engome|agbau|botoes|xamba|sankofa|rumos|funcultura|metodologia|portfolio|curriculo|luteria|aula|escola|salic|orcamento|orçamento|financeir|relatorio|relatório|execucao|execução|analise|análise|aprovacao|aprovação|compliance|proponente|diligencia|diligência)", re.I)
@@ -291,7 +292,7 @@ def load_context(force=False) -> dict[str, Any]:
         return sync_context()
 
 
-def context_prompt(user_prompt: str, project_text: str = "", draft_text: str = "") -> str:
+def context_prompt(user_prompt: str, project_text: str = "", draft_text: str = "", scope: str = "all") -> str:
     data = load_context()
     parts = [
         "Você é o redator estratégico de propostas culturais do Bongarbit.",
@@ -303,7 +304,13 @@ def context_prompt(user_prompt: str, project_text: str = "", draft_text: str = "
         "Se faltar informação, marque [CONFIRMAR] em vez de preencher por suposição.",
         "\nPEDIDO ATUAL:\n" + user_prompt,
     ]
-    ranked_sources = graph_ranked_sources(data.get("sources", []), data.get("graph", {}), user_prompt)
+    sources = data.get("sources", [])
+    if scope == "current-edital":
+        scoped = [source for source in sources if CURRENT_EDITAL_RE.search(source.get("name", ""))]
+        if scoped:
+            sources = scoped
+            parts.append("\n\nESCOPO RESTRITO: use somente os arquivos do edital atual, seu regulamento, FAQ, formulário e plano de preenchimento. Ignore os demais arquivos de contexto.\n")
+    ranked_sources = graph_ranked_sources(sources, data.get("graph", {}), user_prompt)
     source_parts = []
     source_chars = 0
     for source in ranked_sources:

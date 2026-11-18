@@ -24,6 +24,17 @@ const showStage = (stage) => {
   document.querySelectorAll('.step').forEach(step => step.classList.toggle('active', step.dataset.step === stage));
 };
 const currentField = () => formFields[proposalState.fieldIndex];
+const escapeHtml = value => String(value || '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+const renderFieldOverview = () => {
+  const box = proposal$('#field-overview');
+  if (!box) return;
+  box.innerHTML = formFields.map((field, index) => {
+    const value = index === proposalState.fieldIndex ? proposal$('#field-input').value : (proposalState.values[field.id] || '');
+    const filled = Boolean(value.trim());
+    const preview = filled ? escapeHtml(value.trim().replace(/\s+/g, ' ').slice(0, 180)) : 'Ainda não preenchido.';
+    return `<button type="button" class="field-preview ${index === proposalState.fieldIndex ? 'active' : ''} ${filled ? 'filled' : ''}" data-field-index="${index}"><span class="field-preview-heading"><strong>${index + 1}. ${escapeHtml(field.name)}</strong><span>${filled ? 'preenchido' : 'pendente'}</span></span><span class="field-preview-text">${preview}</span></button>`;
+  }).join('');
+};
 const renderSavedDescription = () => {
   const preview = proposal$('#saved-description-preview');
   if (preview) preview.textContent = proposal$('#proposal-input').value.trim() || 'Nenhuma descrição salva.';
@@ -41,6 +52,7 @@ const renderField = () => {
   proposal$('#field-name').textContent = field.name;
   proposal$('#field-input').value = proposalState.values[field.id] || '';
   renderFieldsContext();
+  renderFieldOverview();
   proposal$('#next-field').textContent = proposalState.fieldIndex === formFields.length - 1 ? 'Salvar proposta' : 'Salvar e próximo';
 };
 const localDraft = (description) => {
@@ -133,7 +145,7 @@ async function loadProject(id) {
     projectState.id = p.id; projectState.name = p.name; proposalState.projectId = p.id; proposalState.values = data.fields || {};
     proposal$('#project-title').value = p.name; proposal$('#proposal-input').value = data.description || ''; proposal$('#summary-input').value = data.summary || '';
     renderSavedDescription();
-    proposalState.fieldIndex = 0; renderField(); showStage(data.fields && Object.values(data.fields).some(Boolean) ? 'fields' : data.summary ? 'summary' : 'description'); await loadProjectArtifacts(p.id); setProposalMessage('Projeto carregado do Google Drive. Descrição e resumo salvos foram preservados; nenhuma geração foi executada.');
+    proposalState.fieldIndex = 0; renderField(); showStage(data.description && data.summary ? 'fields' : data.summary ? 'summary' : 'description'); await loadProjectArtifacts(p.id); setProposalMessage('Projeto carregado do Google Drive. Descrição e resumo salvos foram preservados; nenhuma geração foi executada.');
   } catch (error) { setProposalMessage(error.message, 'error'); }
 }
 async function saveProject(options = {}) {
@@ -164,9 +176,18 @@ function scheduleAutosave() {
   }, 1200);
 }
 proposal$('#project-select').addEventListener('change', event => loadProject(event.target.value));
+proposal$('#field-overview').addEventListener('click', event => {
+  const button = event.target.closest('[data-field-index]');
+  if (!button) return;
+  proposalState.values[currentField().id] = proposal$('#field-input').value.trim();
+  proposalState.fieldIndex = Number(button.dataset.fieldIndex);
+  renderField();
+  scheduleAutosave();
+});
 proposal$('#new-project').addEventListener('click', clearProject);
 proposal$('#save-project').addEventListener('click', saveProject);
 ['project-title', 'proposal-input', 'summary-input', 'field-input'].forEach(id => proposal$(`#${id}`).addEventListener('input', scheduleAutosave));
+proposal$('#field-input').addEventListener('input', renderFieldOverview);
 proposal$('#generate-summary').addEventListener('click', async () => {
   const description = proposal$('#proposal-input').value.trim();
   if (!description) return setProposalMessage('Escreva uma descrição antes de gerar o resumo.', 'error');

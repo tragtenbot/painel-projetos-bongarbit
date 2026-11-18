@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="Painel de tarefas, projetos e documentos do Bongarbit." />
   <title>Painel Bongarbit</title>
-  <link rel="stylesheet" href="./styles.css?v=20261118-4" />
+  <link rel="stylesheet" href="./styles.css?v=20261118-6" />
 </head>
 <body>
   <main class="shell">
@@ -56,6 +56,7 @@
           </div>
         </div>
         <div class="field-progress"><span id="field-position">Campo 1 de 10</span><span id="field-name">Justificativa</span></div>
+        <div id="field-overview" class="field-overview" aria-label="Visualização dos campos do formulário"></div>
         <label class="field-label" for="field-input">Texto do campo</label>
         <textarea id="field-input" rows="9" placeholder="Revise ou escreva a resposta deste campo."></textarea>
         <div class="stage-actions"><button id="back-summary" class="secondary">Voltar ao resumo</button><div class="field-actions"><button id="generate-field" class="secondary">Gerar / refazer</button><button id="next-field" class="primary">Salvar e próximo</button></div></div>
@@ -100,7 +101,7 @@
 
     <div class="layout">
       <section class="panel tasks-panel">
-        <div class="panel-heading"><div><p class="kicker">EDITAL / CHECKLIST</p><h2>Lista de tarefas</h2></div><span class="pulse">gerada das fontes</span></div>
+        <div class="panel-heading"><div><p class="kicker">EDITAL / CHECKLIST</p><h2>Lista de tarefas</h2></div><span class="pulse">edital atual</span></div>
         <div id="tasks" class="task-list"></div>
         <p class="task-drive-note">As marcações são salvas no documento de checklist do projeto no Drive quando um projeto está selecionado.</p>
       </section>
@@ -113,6 +114,6 @@
 
     <footer><span>Atualizado manualmente a partir do trabalho no Drive.</span><a href="https://github.com/tragtenbot/painel-projetos-bongarbit" target="_blank" rel="noreferrer">ver repositório ↗</a></footer>
   </main>
-  <script src="./app.js?v=20261118-5"></script>
+  <script src="./app.js?v=20261118-6"></script>
 </body>
 </html>
