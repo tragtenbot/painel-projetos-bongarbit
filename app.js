@@ -24,11 +24,18 @@ const showStage = (stage) => {
   document.querySelectorAll('.step').forEach(step => step.classList.toggle('active', step.dataset.step === stage));
 };
 const currentField = () => formFields[proposalState.fieldIndex];
+const renderFieldsContext = () => {
+  const description = proposal$('#proposal-input').value.trim();
+  const summary = proposal$('#summary-input').value.trim();
+  proposal$('#fields-description-preview').textContent = description || 'Nenhuma descrição salva.';
+  proposal$('#fields-summary-preview').textContent = summary || 'Nenhum resumo salvo.';
+};
 const renderField = () => {
   const field = currentField();
   proposal$('#field-position').textContent = `Campo ${proposalState.fieldIndex + 1} de ${formFields.length}`;
   proposal$('#field-name').textContent = field.name;
   proposal$('#field-input').value = proposalState.values[field.id] || '';
+  renderFieldsContext();
   proposal$('#next-field').textContent = proposalState.fieldIndex === formFields.length - 1 ? 'Salvar proposta' : 'Salvar e próximo';
 };
 const localDraft = (description) => {
@@ -170,13 +177,20 @@ proposal$('#generate-summary').addEventListener('click', async () => {
 });
 proposal$('#back-description').addEventListener('click', () => showStage('description'));
 proposal$('#generate-first-field').addEventListener('click', () => { proposalState.fieldIndex = 0; proposalState.values.summary = proposal$('#summary-input').value.trim(); scheduleAutosave(); renderField(); showStage('fields'); setProposalMessage('Resumo salvo. Agora você pode gerar ou editar cada campo antes de avançar.'); });
-proposal$('#back-summary').addEventListener('click', () => { proposalState.values[currentField().id] = proposal$('#field-input').value; proposal$('#summary-input').value = proposalState.values.summary || proposal$('#summary-input').value; showStage('summary'); });
+proposal$('#back-summary').addEventListener('click', () => { proposalState.values[currentField().id] = proposal$('#field-input').value; scheduleAutosave(); proposal$('#summary-input').value = proposalState.values.summary || proposal$('#summary-input').value; showStage('summary'); });
+proposal$('#edit-description-from-fields').addEventListener('click', () => { proposalState.values[currentField().id] = proposal$('#field-input').value.trim(); scheduleAutosave(); showStage('description'); });
+proposal$('#edit-summary-from-fields').addEventListener('click', () => { proposalState.values[currentField().id] = proposal$('#field-input').value.trim(); scheduleAutosave(); showStage('summary'); });
 proposal$('#generate-field').addEventListener('click', async () => {
   const field = currentField(); const summary = proposalState.values.summary || proposal$('#summary-input').value.trim();
   if (!summary) return setProposalMessage('Volte ao resumo e escreva a base da proposta.', 'error');
   const button = proposal$('#generate-field'); button.disabled = true; button.textContent = 'Gerando…';
   try {
-    const prompt = `Preencha somente o campo “${field.name}” de uma proposta cultural. Instrução: ${field.instruction}\n\nResumo aprovado pelo usuário:\n${summary}`;
+    const context = draftContext();
+    const prompt = `Preencha somente o campo “${field.name}” de uma proposta cultural. Instrução: ${field.instruction}
+
+Use o contexto completo abaixo. Considere a descrição livre, o resumo e todos os campos já preenchidos. Preserve informações já definidas, complemente apenas o que for necessário e não invente dados.
+
+${context}`;
     const generated = await generateWithCodex(prompt);
     if (generated) { proposal$('#field-input').value = generated; scheduleAutosave(); setProposalMessage('Campo gerado pelo Codex. Revise e altere livremente.'); }
     else setProposalMessage('O bridge do Codex não está conectado. Escreva ou cole a resposta deste campo; ela será preservada.', 'warning');

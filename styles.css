@@ -107,6 +107,15 @@ h1 span { color: var(--terracota-queimada); }
 .secondary { color: var(--text-strong); background: var(--surface-card); }
 .secondary:hover { background: var(--grafite-08); }
 .primary:active, .secondary:active, button:active { transform: translate(2px, 2px); box-shadow: none; }
+.proposal-context { margin-bottom: 20px; padding: 14px; border: 1px solid var(--border-hairline); background: var(--surface-sunken); }
+.context-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+.context-heading h3 { margin: 0; font-size: var(--fs-h3); }
+.context-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.context-card { min-width: 0; padding: 12px; border: 1px solid var(--border-hairline); background: var(--surface-card); }
+.context-card h4 { margin: 0 0 7px; color: var(--terracota-queimada); font-size: var(--fs-micro); letter-spacing: .12em; text-transform: uppercase; }
+.context-card p { max-height: 150px; margin: 0 0 10px; overflow-y: auto; white-space: pre-wrap; color: var(--text-body); font-size: var(--fs-small); line-height: var(--lh-dense); }
+.text-button { padding: 0; border: 0; color: var(--text-link); background: transparent; font: inherit; font-size: var(--fs-micro); text-decoration: underline; cursor: pointer; }
+.text-button:hover { color: var(--text-link-hover); }
 .field-progress { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 13px; color: var(--text-muted); font-size: var(--fs-micro); font-weight: 600; letter-spacing: .12em; text-transform: uppercase; }
 .field-progress span:last-child { color: var(--terracota-queimada); text-align: right; }
 .field-actions { display: flex; gap: 8px; }
@@ -166,6 +175,8 @@ footer a { color: var(--text-link); }
   .workspace-head, .bridge-access, .stage-actions { align-items: stretch; flex-direction: column; }
   .bridge-status { align-self: flex-start; }
   .field-actions { flex-wrap: wrap; }
+  .context-grid { grid-template-columns: 1fr; }
+  .context-heading { flex-direction: column; }
   .task { grid-template-columns: auto 1fr; }
   .task .tag { grid-column: 2; }
   footer { flex-direction: column; }
