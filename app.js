@@ -16,6 +16,7 @@ const formFields = [
 const proposalState = { stage: 'description', fieldIndex: 0, values: {}, bridge: false, projectId: '' };
 const projectState = { id: '', name: '' };
 const proposal$ = (selector) => document.querySelector(selector);
+const $ = (selector) => document.querySelector(selector);
 const setProposalMessage = (message, tone = '') => { const el = proposal$('#proposal-message'); el.textContent = message; el.dataset.tone = tone; };
 const showStage = (stage) => {
   proposalState.stage = stage;
@@ -256,7 +257,6 @@ const links = [
 
 const state = { filter: 'all', query: '' };
 const chatState = { messages: [], qaUrl: '' };
-const $ = (selector) => document.querySelector(selector);
 
 function matches(item) {
   const haystack = Object.values(item).join(' ').toLowerCase();
