@@ -55,6 +55,23 @@
       <p id="proposal-message" class="proposal-message" role="status"></p>
     </section>
 
+    <section class="chat-workspace panel" aria-labelledby="chat-title">
+      <div class="workspace-head">
+        <div>
+          <p class="kicker">EDITAL TRANSPETRO / DÚVIDAS</p>
+          <h2 id="chat-title">Pergunte antes de preencher</h2>
+          <p class="workspace-intro">Converse sobre regras, documentos, critérios e campos. A resposta considera o edital e o contexto do projeto selecionado.</p>
+        </div>
+        <span id="qa-drive-status" class="bridge-status">Perguntas não salvas</span>
+      </div>
+      <div id="chat-messages" class="chat-messages"><p class="empty">Selecione ou salve um projeto para começar a registrar dúvidas.</p></div>
+      <div class="chat-compose">
+        <label class="field-label" for="chat-input">Sua pergunta</label>
+        <textarea id="chat-input" rows="3" placeholder="Ex.: Quais documentos preciso conferir antes de enviar a proposta?"></textarea>
+        <div class="stage-actions"><span class="helper">Cada pergunta e resposta será acrescentada a um documento separado no Drive.</span><button id="send-chat" class="primary">Perguntar</button></div>
+      </div>
+    </section>
+
     <section class="summary" aria-label="Resumo">
       <div class="metric"><strong id="pending-count">0</strong><span>pendentes</span></div>
       <div class="metric"><strong id="done-count">0</strong><span>concluídas</span></div>
@@ -66,6 +83,8 @@
       <div class="filters" role="group" aria-label="Filtrar por categoria">
         <button class="filter active" data-filter="all">Tudo</button>
         <button class="filter" data-filter="task">Tarefas</button>
+        <button class="filter" data-filter="pending">Pendentes</button>
+        <button class="filter" data-filter="done">Concluídas</button>
         <button class="filter" data-filter="document">Documentos</button>
         <button class="filter" data-filter="folder">Pastas</button>
       </div>
@@ -73,8 +92,9 @@
 
     <div class="layout">
       <section class="panel tasks-panel">
-        <div class="panel-heading"><div><p class="kicker">AGORA</p><h2>Lista de tarefas</h2></div><span class="pulse">em andamento</span></div>
+        <div class="panel-heading"><div><p class="kicker">EDITAL / CHECKLIST</p><h2>Lista de tarefas</h2></div><span class="pulse">gerada das fontes</span></div>
         <div id="tasks" class="task-list"></div>
+        <p class="task-drive-note">As marcações são salvas no documento de checklist do projeto no Drive quando um projeto está selecionado.</p>
       </section>
 
       <aside class="panel links-panel">

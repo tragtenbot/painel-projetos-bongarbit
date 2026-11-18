@@ -78,8 +78,15 @@ class Handler(BaseHTTPRequestHandler):
             self._reply(200, {"projects": drive_context.project_files()})
             return
         if self.path.startswith("/projects/"):
+            project_path = self.path.split("/", 3)
             try:
-                self._reply(200, drive_context.get_project(unquote(self.path.split("/", 2)[2])))
+                project_id = unquote(project_path[2])
+                if len(project_path) == 4 and project_path[3] == "qa":
+                    self._reply(200, drive_context.get_qa(project_id))
+                elif len(project_path) == 4 and project_path[3] == "tasks":
+                    self._reply(200, drive_context.get_tasks(project_id))
+                else:
+                    self._reply(200, drive_context.get_project(project_id))
             except Exception as exc:
                 self._reply(404, {"error": str(exc)})
             return
@@ -100,6 +107,22 @@ class Handler(BaseHTTPRequestHandler):
                 text = str(data.get("text", ""))
                 if not text.strip(): raise ValueError("projeto vazio")
                 self._reply(201, drive_context.create_project(name, text))
+            except Exception as exc:
+                self._reply(502, {"error": str(exc)})
+            return
+        if self.path.startswith("/projects/"):
+            project_path = self.path.split("/", 3)
+            try:
+                project_id = unquote(project_path[2])
+                payload = data
+                if len(project_path) == 4 and project_path[3] == "qa":
+                    result = drive_context.append_qa(project_id, str(payload.get("question", "")), str(payload.get("answer", "")))
+                elif len(project_path) == 4 and project_path[3] == "tasks":
+                    result = drive_context.save_tasks(project_id, payload.get("tasks", []))
+                else:
+                    self._reply(404, {"error": "not_found"})
+                    return
+                self._reply(200, result)
             except Exception as exc:
                 self._reply(502, {"error": str(exc)})
             return

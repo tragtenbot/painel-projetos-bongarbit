@@ -113,6 +113,14 @@ h1 span { color: var(--terracota-queimada); }
 .proposal-message { min-height: 18px; margin: 13px 0 0; }
 .proposal-message[data-tone="error"] { color: var(--terracota-queimada); }
 .proposal-message[data-tone="success"] { color: var(--verde-baoba); }
+.chat-workspace { margin: 16px 0 28px; border-top: 3px solid var(--azul-caixa-dagua); }
+.chat-messages { max-height: 360px; overflow-y: auto; margin-top: 16px; border-top: 1px solid var(--border-hairline); }
+.chat-message { padding: 12px 10px; border-bottom: 1px solid var(--border-hairline); }
+.chat-message strong { display: block; margin-bottom: 5px; color: var(--terracota-queimada); font-size: var(--fs-micro); letter-spacing: .12em; text-transform: uppercase; }
+.chat-message p { margin: 0; white-space: pre-wrap; color: var(--text-body); }
+.chat-message.user { background: var(--grafite-08); }
+.chat-compose { margin-top: 16px; }
+.task-drive-note { margin: 14px 8px 0; color: var(--text-muted); font-size: var(--fs-micro); }
 
 .summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin-bottom: 28px; border: 1px solid var(--border-rule); }
 .metric { padding: 14px 16px; border-right: 1px solid var(--border-rule); background: var(--surface-card); }
@@ -137,6 +145,7 @@ h1 span { color: var(--terracota-queimada); }
 .check { width: 17px; height: 17px; margin-top: 2px; accent-color: var(--terracota-queimada); }
 .task-title { font-weight: 700; line-height: 1.3; }
 .task-meta { display: block; margin-top: 5px; color: var(--text-body); font-size: var(--fs-small); line-height: var(--lh-dense); }
+.task-source { display: block; margin-top: 5px; color: var(--text-muted); font-size: var(--fs-micro); line-height: var(--lh-dense); }
 .task.done .task-title { color: var(--text-muted); text-decoration: line-through; }
 .tag, .drive-link .link-type { color: var(--terracota-queimada); font-size: var(--fs-micro); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; white-space: nowrap; }
 .drive-link { display: block; color: var(--text-strong); text-decoration: none; }

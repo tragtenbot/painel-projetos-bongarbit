@@ -63,7 +63,7 @@ function projectText() {
 }
 function clearProject() {
   projectState.id = ''; projectState.name = ''; proposalState.projectId = ''; proposalState.values = {}; proposalState.fieldIndex = 0;
-  proposal$('#project-title').value = ''; proposal$('#project-select').value = ''; proposal$('#proposal-input').value = ''; proposal$('#summary-input').value = ''; proposal$('#field-input').value = ''; showStage('description'); setProposalMessage('Novo projeto iniciado.');
+  chatState.messages = []; chatState.qaUrl = ''; $('#qa-drive-status').textContent = 'Perguntas não salvas'; $('#qa-drive-status').classList.remove('connected'); renderChat();  proposal$('#project-title').value = ''; proposal$('#project-select').value = ''; proposal$('#proposal-input').value = ''; proposal$('#summary-input').value = ''; proposal$('#field-input').value = ''; showStage('description'); setProposalMessage('Novo projeto iniciado.');
 }
 async function loadProjects() {
   const token = bridgeToken$(); if (!token) return;
@@ -74,6 +74,42 @@ async function loadProjects() {
     select.innerHTML = '<option value="">Novo projeto</option>' + data.projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
   } catch (_) {}
 }
+function parseQaText(text) {
+  const messages = [];
+  const chunks = text.split(/\n## Pergunta — /).slice(1);
+  for (const chunk of chunks) {
+    const parts = chunk.split(/\n### Resposta\n/);
+    if (parts.length === 2) messages.push({ question: parts[0].replace(/^.*\n/, '').trim(), answer: parts[1].trim() });
+  }
+  return messages;
+}
+function renderChat() {
+  const box = $('#chat-messages');
+  if (!chatState.messages.length) { box.innerHTML = '<p class="empty">Nenhuma pergunta registrada para este projeto.</p>'; return; }
+  box.innerHTML = chatState.messages.map(item => `<div class="chat-message user"><strong>Pergunta</strong><p>${item.question}</p></div><div class="chat-message"><strong>Resposta baseada no contexto</strong><p>${item.answer}</p></div>`).join('');
+  box.scrollTop = box.scrollHeight;
+}
+async function loadProjectArtifacts(projectId) {
+  chatState.messages = []; chatState.qaUrl = '';
+  if (!projectId || !bridgeToken$()) { renderChat(); return; }
+  try {
+    const [qaResponse, taskResponse] = await Promise.all([
+      fetch(`${BRIDGE_URL}/projects/${encodeURIComponent(projectId)}/qa`, { headers: { Authorization: `Bearer ${bridgeToken$()}` } }),
+      fetch(`${BRIDGE_URL}/projects/${encodeURIComponent(projectId)}/tasks`, { headers: { Authorization: `Bearer ${bridgeToken$()}` } })
+    ]);
+    if (qaResponse.ok) { const qa = await qaResponse.json(); chatState.messages = parseQaText(qa.text || ''); chatState.qaUrl = qa.webViewLink || ''; $('#qa-drive-status').textContent = 'Perguntas salvas no Drive'; $('#qa-drive-status').classList.add('connected'); }
+    if (taskResponse.ok) { const saved = await taskResponse.json(); const byId = new Map((saved.tasks || []).map(task => [task.id, task])); tasks.forEach(task => { if (byId.has(task.id)) task.status = byId.get(task.id).status || task.status; }); render(); }
+  } catch (_) {}
+  renderChat();
+}
+async function saveTasksToDrive() {
+  if (!projectState.id || !bridgeToken$()) return;
+  try {
+    const response = await fetch(`${BRIDGE_URL}/projects/${encodeURIComponent(projectState.id)}/tasks`, { method: 'POST', headers: { Authorization: `Bearer ${bridgeToken$()}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ tasks }) });
+    if (!response.ok) throw new Error('não foi possível salvar a checklist');
+  } catch (error) { setProposalMessage(`Checklist não salva no Drive: ${error.message}`, 'error'); }
+}
+
 async function loadProject(id) {
   if (!id) return clearProject();
   try {
@@ -83,7 +119,7 @@ async function loadProject(id) {
     try { data = JSON.parse(p.text); } catch (_) { data = { description: p.text, summary: '', fields: {} }; }
     projectState.id = p.id; projectState.name = p.name; proposalState.projectId = p.id; proposalState.values = data.fields || {};
     proposal$('#project-title').value = p.name; proposal$('#proposal-input').value = data.description || ''; proposal$('#summary-input').value = data.summary || '';
-    proposalState.fieldIndex = 0; renderField(); showStage(data.summary ? 'summary' : 'description'); setProposalMessage('Projeto carregado do Google Drive.');
+    proposalState.fieldIndex = 0; renderField(); showStage(data.summary ? 'summary' : 'description'); await loadProjectArtifacts(p.id); setProposalMessage('Projeto carregado do Google Drive.');
   } catch (error) { setProposalMessage(error.message, 'error'); }
 }
 async function saveProject() {
@@ -135,17 +171,43 @@ proposal$('#next-field').addEventListener('click', () => {
   if (proposalState.fieldIndex === formFields.length - 1) { setProposalMessage('Todos os campos foram salvos nesta sessão. Você pode voltar e revisar qualquer um deles.', 'success'); return; }
   proposalState.fieldIndex += 1; renderField(); setProposalMessage('Campo salvo. Revise este próximo campo antes de avançar.');
 });
+$('#send-chat').addEventListener('click', async () => {
+  const question = $('#chat-input').value.trim();
+  if (!question) return setProposalMessage('Escreva uma pergunta para o edital.', 'error');
+  if (!bridgeToken$()) return setProposalMessage('Informe o token do bridge antes de perguntar.', 'error');
+  if (!projectState.id) { await saveProject(); if (!projectState.id) return; }
+  const button = $('#send-chat'); button.disabled = true; button.textContent = 'Consultando…';
+  try {
+    const prompt = `Responda à dúvida abaixo sobre o edital da Transpetro. Use o edital, regulamento, FAQ, formulário, legislação e documentos de contexto recuperados. Considere o projeto atual. Não invente exigências: diferencie regra explícita, interpretação e ponto que precisa ser confirmado. Cite o nome da fonte quando possível e termine com uma orientação prática.\n\nDÚVIDA:\n${question}`;
+    const answer = await generateWithCodex(prompt);
+    if (!answer) throw new Error('o bridge não retornou resposta');
+    const response = await fetch(`${BRIDGE_URL}/projects/${encodeURIComponent(projectState.id)}/qa`, { method: 'POST', headers: { Authorization: `Bearer ${bridgeToken$()}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ question, answer }) });
+    const saved = await response.json(); if (!response.ok) throw new Error(saved.error || 'não foi possível salvar no Drive');
+    chatState.messages.push({ question, answer }); chatState.qaUrl = saved.webViewLink || chatState.qaUrl; $('#chat-input').value = ''; $('#qa-drive-status').textContent = 'Perguntas salvas no Drive'; $('#qa-drive-status').classList.add('connected'); renderChat(); setProposalMessage('Resposta registrada no documento separado do Drive.', 'success');
+  } catch (error) { setProposalMessage(`Não foi possível responder: ${error.message}`, 'error'); }
+  finally { button.disabled = false; button.textContent = 'Perguntar'; }
+});
 refreshBridgeStatus();
 
 const tasks = [
-  { id: 'legislacao', title: 'Conferir a legislação central da Lei Rouanet', meta: 'Lei 8.313/1991, Decreto 11.453/2023 e IN MinC 29/2026', tag: 'legislação', status: 'pending' },
-  { id: 'projetos', title: 'Ler os projetos anteriores reunidos na pasta Vale', meta: 'Selecionar ideias, textos e estruturas que podem ser reaproveitados', tag: 'projetos', status: 'pending' },
-  { id: 'base', title: 'Definir o projeto-base para a próxima proposta', meta: 'Cruzar Ficha Vale, contexto Rouanet e experiências do Bongarbit', tag: 'decisão', status: 'pending' },
-  { id: 'formulario', title: 'Revisar o formulário e o plano de preenchimento', meta: 'Identificar campos prontos, lacunas e informações que dependem de confirmação', tag: 'formulário', status: 'pending' },
-  { id: 'orcamento', title: 'Conferir orçamento e rubricas', meta: 'Usar a planilha de produção do SALIC como referência, sem duplicar versões', tag: 'orçamento', status: 'pending' },
-  { id: 'anexos', title: 'Validar documentos e anexos do proponente', meta: 'CNPJ, estatuto, portfólio, currículos e comprovações', tag: 'anexos', status: 'pending' },
-  { id: 'indice', title: 'Manter o índice de projetos e legislação atualizado', meta: 'Adicionar novos documentos sem criar atalhos de pastas', tag: 'organização', status: 'pending' }
+  { id: 'edital-leitura', title: 'Ler edital, regulamento e FAQ da Transpetro', meta: 'Registrar prazo, linha temática, critérios, limites e documentos exigidos', tag: 'edital', source: 'Edital / Regulamento / FAQ', status: 'pending' },
+  { id: 'formulario-mapa', title: 'Conferir todos os campos do formulário', meta: 'Cruzar formulário, ficha do projeto e plano de preenchimento; marcar lacunas', tag: 'formulário', source: 'Formulário / Ficha / Plano de preenchimento', status: 'pending' },
+  { id: 'proponente', title: 'Validar documentação do proponente', meta: 'Conferir CNPJ, representação, regularidade e documentos institucionais aplicáveis', tag: 'documentos', source: 'SALIC / Proponente / Compliance', status: 'pending' },
+  { id: 'equipe-curriculos', title: 'Reunir currículos e comprovações da equipe', meta: 'Vincular cada função à experiência e guardar os comprovantes correspondentes', tag: 'equipe', source: 'Ficha do projeto / Portfólio / Currículos', status: 'pending' },
+  { id: 'territorio-parcerias', title: 'Confirmar território, locais e parcerias', meta: 'Obter autorizações, cartas ou comprovações necessárias para os espaços e parceiros', tag: 'execução', source: 'Briefing / Ficha / Projeto', status: 'pending' },
+  { id: 'metodologia', title: 'Fechar metodologia e plano de atividades', meta: 'Descrever etapas, oficinas, responsáveis, duração, materiais e resultados de cada ação', tag: 'metodologia', source: 'Planos de aula / Briefing / Formulário', status: 'pending' },
+  { id: 'cronograma', title: 'Fechar cronograma físico de execução', meta: 'Compatibilizar preparação, atividades, circulação, comunicação, acessibilidade e prestação de contas', tag: 'cronograma', source: 'Formulário / Projeto / SALIC', status: 'pending' },
+  { id: 'publico-acesso', title: 'Definir público, gratuidade e ampliação de acesso', meta: 'Informar quantidade, perfil, critérios de participação e medidas de democratização', tag: 'acesso', source: 'IN MinC 29/2026 / Ficha / Regulamento', status: 'pending' },
+  { id: 'acessibilidade', title: 'Escolher e detalhar medidas de acessibilidade', meta: 'Verificar medidas obrigatórias e ações efetivas para pessoas com deficiência', tag: 'acessibilidade', source: 'IN MinC 29/2026 / Súmula CNIC 33', status: 'pending' },
+  { id: 'comunicacao-marcas', title: 'Conferir comunicação e aplicação de marcas', meta: 'Planejar divulgação e obedecer ao manual de marcas e contrapartidas da chamada', tag: 'comunicação', source: 'Manual da Lei Rouanet / Regulamento', status: 'pending' },
+  { id: 'orcamento-rubricas', title: 'Conferir orçamento, rubricas e quantitativos', meta: 'Revisar planilha, custos unitários, encargos, itens permitidos e coerência com o cronograma', tag: 'orçamento', source: 'Planilha SALIC / IN MinC 29/2026', status: 'pending' },
+  { id: 'custos-vinculados', title: 'Validar custos vinculados e despesas administrativas', meta: 'Conferir limites, justificativas, remanejamento e compatibilidade com a legislação vigente', tag: 'orçamento', source: 'IN MinC 29/2026 / Planilha / Manual', status: 'pending' },
+  { id: 'contrapartida', title: 'Fechar contrapartidas sociais e ações de difusão', meta: 'Descrever ações abertas, circulação, formação, gratuidade e retorno público', tag: 'contrapartida', source: 'Regulamento / Ficha / Projetos anteriores', status: 'pending' },
+  { id: 'resultados', title: 'Definir produtos, metas e indicadores verificáveis', meta: 'Relacionar entregas, público alcançado, registros e meios de comprovação', tag: 'resultados', source: 'Formulário / Relatórios / Avaliação de resultados', status: 'pending' },
+  { id: 'salic-compliance', title: 'Conferir exigências de SALIC e prestação de contas', meta: 'Mapear execução, monitoramento, comprovação, arquivos e responsáveis pelo registro', tag: 'SALIC', source: 'Índice SALIC / IN MinC 29/2026 / Compliance', status: 'pending' },
+  { id: 'revisao-final', title: 'Fazer revisão final cruzada antes do envio', meta: 'Verificar se texto, orçamento, cronograma, documentos e anexos dizem a mesma coisa', tag: 'revisão', source: 'Todos os documentos do edital', status: 'pending' }
 ];
+
 
 const links = [
   { type: 'documento', title: 'Mapa do contexto para preenchimento do formulário', note: 'Como cada fonte orienta a escrita dos campos', url: 'https://drive.google.com/file/d/1_-8joyRXruGXlAOeO4bhBlS0XWnLkJDy/view?usp=drivesdk' },
@@ -169,13 +231,16 @@ const links = [
 ];
 
 const state = { filter: 'all', query: '' };
+const chatState = { messages: [], qaUrl: '' };
 const $ = (selector) => document.querySelector(selector);
 
 function matches(item) {
   const haystack = Object.values(item).join(' ').toLowerCase();
   const queryMatch = haystack.includes(state.query.toLowerCase());
   const type = item.status ? 'task' : item.type === 'pasta' ? 'folder' : 'document';
-  return queryMatch && (state.filter === 'all' || state.filter === type);
+  const statusMatch = state.filter === 'pending' ? item.status === 'pending' : state.filter === 'done' ? item.status === 'done' : true;
+  const typeMatch = ['pending', 'done'].includes(state.filter) ? type === 'task' : state.filter === 'all' || state.filter === type;
+  return queryMatch && statusMatch && typeMatch;
 }
 
 function render() {
@@ -184,7 +249,7 @@ function render() {
   $('#tasks').innerHTML = visibleTasks.length ? visibleTasks.map(task => `
     <label class="task ${task.status === 'done' ? 'done' : ''}">
       <input class="check" type="checkbox" data-id="${task.id}" ${task.status === 'done' ? 'checked' : ''} aria-label="Concluir: ${task.title}" />
-      <span><span class="task-title">${task.title}</span><span class="task-meta">${task.meta}</span></span>
+      <span><span class="task-title">${task.title}</span><span class="task-meta">${task.meta}</span><small class="task-source">Fonte: ${task.source || 'contexto do projeto'}</small></span>
       <span class="tag">${task.tag}</span>
     </label>`).join('') : '<p class="empty">Nenhum item corresponde à busca.</p>';
   $('#links').innerHTML = visibleLinks.length ? visibleLinks.map(link => `
@@ -198,6 +263,7 @@ function render() {
     const task = tasks.find(t => t.id === input.dataset.id);
     task.status = input.checked ? 'done' : 'pending';
     render();
+    saveTasksToDrive();
   }));
 }
 

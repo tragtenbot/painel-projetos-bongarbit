@@ -16,6 +16,8 @@ import google_api
 
 REFERENCE_FOLDER_ID = os.getenv("CODEX_REFERENCE_FOLDER_ID", "1OS4zRBdG2nG7R8Ax-Qt2mIlnp23acK47")
 PROJECT_FOLDER_NAME = os.getenv("CODEX_PROJECT_FOLDER_NAME", "Projetos criados pelo Painel Bongarbit")
+QA_SUFFIX = " — Perguntas e respostas — Edital Transpetro"
+TASKS_SUFFIX = " — Checklist e tarefas — Edital Transpetro"
 CACHE_PATH = Path(os.getenv("CODEX_CONTEXT_CACHE", "/root/.hermes/codex-bridge-context.json"))
 MAX_SOURCE_CHARS = 28000
 MAX_CONTEXT_CHARS = 52000
@@ -333,7 +335,7 @@ def project_files() -> list[dict[str, Any]]:
         q=f"'{folder['id']}' in parents and trashed=false and mimeType='{GOOGLE_DOC}'",
         orderBy="modifiedTime desc", fields="files(id,name,modifiedTime,webViewLink,parents)", pageSize=100,
     ).execute()
-    return result.get("files", [])
+    return [item for item in result.get("files", []) if not item["name"].endswith((QA_SUFFIX, TASKS_SUFFIX))]
 
 
 def get_project(project_id: str) -> dict[str, Any]:
@@ -368,3 +370,68 @@ def update_project(project_id: str, name: str, text: str) -> dict[str, Any]:
     docs_service().documents().batchUpdate(documentId=project_id, body={"requests": requests}).execute()
     drive_service().files().update(fileId=project_id, body={"name": name}, fields="id,name,modifiedTime,webViewLink,parents").execute()
     return get_project(project_id)
+
+
+def _document_in_project(suffix: str, project_name: str) -> dict[str, Any]:
+    folder = ensure_project_folder()
+    service = drive_service()
+    name = f"{project_name}{suffix}"
+    safe_name = name.replace("'", "\\'")
+    query = f"'{folder['id']}' in parents and name='{safe_name}' and mimeType='{GOOGLE_DOC}' and trashed=false"
+    found = service.files().list(q=query, fields="files(id,name,modifiedTime,webViewLink,parents)", pageSize=10).execute().get("files", [])
+    if found:
+        return found[0]
+    doc = docs_service().documents().create(body={"title": name}).execute()
+    doc_id = doc["documentId"]
+    intro = f"{name}\n\nProjeto relacionado: {project_name}\nCriado pelo Painel Bongarbit.\n"
+    docs_service().documents().batchUpdate(documentId=doc_id, body={"requests": [{"insertText": {"location": {"index": 1}, "text": intro}}]}).execute()
+    service.files().update(fileId=doc_id, addParents=folder["id"], fields="id,name,modifiedTime,webViewLink,parents").execute()
+    return get_project(doc_id)
+
+
+def _replace_document_text(document_id: str, text: str) -> dict[str, Any]:
+    doc = docs_service().documents().get(documentId=document_id).execute()
+    content = doc.get("body", {}).get("content", [])
+    end_index = content[-1].get("endIndex", 2) if content else 2
+    requests = []
+    if end_index > 2:
+        requests.append({"deleteContentRange": {"range": {"startIndex": 1, "endIndex": end_index - 1}}})
+    requests.append({"insertText": {"location": {"index": 1}, "text": text}})
+    docs_service().documents().batchUpdate(documentId=document_id, body={"requests": requests}).execute()
+    return get_project(document_id)
+
+
+def get_qa(project_id: str) -> dict[str, Any]:
+    project = get_project(project_id)
+    qa = _document_in_project(QA_SUFFIX, project["name"])
+    qa["text"] = get_project(qa["id"]).get("text", "")
+    return qa
+
+
+def append_qa(project_id: str, question: str, answer: str) -> dict[str, Any]:
+    project = get_project(project_id)
+    qa = _document_in_project(QA_SUFFIX, project["name"])
+    current = get_project(qa["id"]).get("text", "")
+    stamp = time.strftime("%d/%m/%Y %H:%M")
+    entry = f"\n\n## Pergunta — {stamp}\n{question.strip()}\n\n### Resposta\n{answer.strip()}\n"
+    return _replace_document_text(qa["id"], current + entry)
+
+
+def get_tasks(project_id: str) -> dict[str, Any]:
+    project = get_project(project_id)
+    tasks_doc = _document_in_project(TASKS_SUFFIX, project["name"])
+    text = get_project(tasks_doc["id"]).get("text", "")
+    try:
+        payload = json.loads(text)
+        tasks = payload.get("tasks", []) if isinstance(payload, dict) else []
+    except Exception:
+        tasks = []
+    return {"id": tasks_doc["id"], "name": tasks_doc["name"], "webViewLink": tasks_doc.get("webViewLink"), "tasks": tasks}
+
+
+def save_tasks(project_id: str, tasks: list[dict[str, Any]]) -> dict[str, Any]:
+    project = get_project(project_id)
+    tasks_doc = _document_in_project(TASKS_SUFFIX, project["name"])
+    text = json.dumps({"project_id": project_id, "updated_at": time.strftime("%Y-%m-%dT%H:%M:%S"), "tasks": tasks}, ensure_ascii=False, indent=2)
+    result = _replace_document_text(tasks_doc["id"], text)
+    return {"id": result["id"], "name": result["name"], "webViewLink": result.get("webViewLink"), "tasks": tasks}
