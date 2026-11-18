@@ -162,13 +162,14 @@ proposal$('#generate-summary').addEventListener('click', async () => {
     const prompt = `Você está ajudando a formular uma proposta cultural para um edital. Gere apenas um resumo claro, fiel e editável a partir desta descrição:\n\n${description}`;
     const generated = await generateWithCodex(prompt);
     proposal$('#summary-input').value = generated || localDraft(description);
+    scheduleAutosave();
     showStage('summary');
     setProposalMessage(generated ? 'Resumo gerado pelo Codex. Revise antes de continuar.' : 'Bridge do Codex não conectado: foi criado um rascunho local para você editar. Nenhuma API foi chamada.', generated ? 'success' : 'warning');
   } catch (error) { setProposalMessage(`Não foi possível consultar o bridge do Codex: ${error.message}`, 'error'); }
   finally { button.disabled = false; button.textContent = 'Gerar resumo'; }
 });
 proposal$('#back-description').addEventListener('click', () => showStage('description'));
-proposal$('#generate-first-field').addEventListener('click', () => { proposalState.fieldIndex = 0; proposalState.values.summary = proposal$('#summary-input').value.trim(); renderField(); showStage('fields'); setProposalMessage('Resumo salvo. Agora você pode gerar ou editar cada campo antes de avançar.'); });
+proposal$('#generate-first-field').addEventListener('click', () => { proposalState.fieldIndex = 0; proposalState.values.summary = proposal$('#summary-input').value.trim(); scheduleAutosave(); renderField(); showStage('fields'); setProposalMessage('Resumo salvo. Agora você pode gerar ou editar cada campo antes de avançar.'); });
 proposal$('#back-summary').addEventListener('click', () => { proposalState.values[currentField().id] = proposal$('#field-input').value; proposal$('#summary-input').value = proposalState.values.summary || proposal$('#summary-input').value; showStage('summary'); });
 proposal$('#generate-field').addEventListener('click', async () => {
   const field = currentField(); const summary = proposalState.values.summary || proposal$('#summary-input').value.trim();
@@ -177,13 +178,14 @@ proposal$('#generate-field').addEventListener('click', async () => {
   try {
     const prompt = `Preencha somente o campo “${field.name}” de uma proposta cultural. Instrução: ${field.instruction}\n\nResumo aprovado pelo usuário:\n${summary}`;
     const generated = await generateWithCodex(prompt);
-    if (generated) { proposal$('#field-input').value = generated; setProposalMessage('Campo gerado pelo Codex. Revise e altere livremente.'); }
+    if (generated) { proposal$('#field-input').value = generated; scheduleAutosave(); setProposalMessage('Campo gerado pelo Codex. Revise e altere livremente.'); }
     else setProposalMessage('O bridge do Codex não está conectado. Escreva ou cole a resposta deste campo; ela será preservada.', 'warning');
   } catch (error) { setProposalMessage(`Não foi possível consultar o bridge do Codex: ${error.message}`, 'error'); }
   finally { button.disabled = false; button.textContent = 'Gerar / refazer'; }
 });
 proposal$('#next-field').addEventListener('click', () => {
   proposalState.values[currentField().id] = proposal$('#field-input').value.trim();
+  scheduleAutosave();
   if (proposalState.fieldIndex === formFields.length - 1) { setProposalMessage('Todos os campos foram salvos nesta sessão. Você pode voltar e revisar qualquer um deles.', 'success'); return; }
   proposalState.fieldIndex += 1; renderField(); setProposalMessage('Campo salvo. Revise este próximo campo antes de avançar.');
 });
