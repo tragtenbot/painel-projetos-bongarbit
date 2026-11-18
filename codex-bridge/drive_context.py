@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Drive-backed context and project storage for the Codex bridge."""
 from __future__ import annotations
-import io, json, os, re, time
+import io, json, os, re, time, unicodedata
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +19,7 @@ PROJECT_FOLDER_NAME = os.getenv("CODEX_PROJECT_FOLDER_NAME", "Projetos criados p
 CACHE_PATH = Path(os.getenv("CODEX_CONTEXT_CACHE", "/root/.hermes/codex-bridge-context.json"))
 MAX_SOURCE_CHARS = 28000
 MAX_CONTEXT_CHARS = 52000
+GRAPH_NAME = os.getenv("CODEX_GRAPH_NAME", "graph.json")
 
 EXCLUDE_RE = re.compile(r"(dados pessoais|rg novo|copia_cpf|cartao_cnpj|cnpj\.pdf|cpf|notas fiscais|alterac.?o.*batebit|ata_eleicao|confirmacao de inscricao|estatuto|contrato social|ccmei)", re.I)
 PRIORITY_RE = re.compile(r"(edital|regulamento|faq|formulario|lei|decreto|resolu|sumula|in_min|manual|projeto|ficha|contexto|possibilidades|briefing|bongarbit|engome|agbau|botoes|xamba|sankofa|rumos|funcultura|metodologia|portfolio|curriculo|luteria|aula|escola|salic|orcamento|orçamento|financeir|relatorio|relatório|execucao|execução|analise|análise|aprovacao|aprovação|compliance|proponente|diligencia|diligência)", re.I)
@@ -115,6 +116,104 @@ def decode_file(item: dict[str, Any], raw: bytes) -> str:
     return ""
 
 
+def compact_graph(raw: bytes) -> dict[str, Any]:
+    """Keep graph navigation metadata, not the full graph visualization payload."""
+    graph = json.loads(raw.decode("utf-8"))
+    nodes = {}
+    for node in graph.get("nodes", []):
+        node_id = node.get("id")
+        if not node_id:
+            continue
+        nodes[node_id] = {
+            "label": node.get("label", ""),
+            "community": node.get("community_name", ""),
+            "source_files": node.get("source_files") or ([node["source_file"]] if node.get("source_file") else []),
+        }
+    links = []
+    for link in graph.get("links", []):
+        if link.get("source") in nodes and link.get("target") in nodes:
+            links.append({
+                "source": link["source"], "target": link["target"],
+                "relation": link.get("relation", "related_to"),
+                "confidence": link.get("confidence_score", 0),
+                "note": link.get("note", ""),
+            })
+    hyperedges = []
+    for edge in graph.get("hyperedges", []):
+        members = [node_id for node_id in edge.get("nodes", []) if node_id in nodes]
+        if members:
+            hyperedges.append({
+                "label": edge.get("label", ""), "nodes": members,
+                "relation": edge.get("relation", "related_to"),
+                "confidence": edge.get("confidence_score", 0),
+            })
+    return {"nodes": nodes, "links": links, "hyperedges": hyperedges}
+
+
+def normalize_text(value: str) -> str:
+    value = unicodedata.normalize("NFKD", value or "")
+    return "".join(char for char in value if not unicodedata.combining(char)).lower()
+
+
+def graph_source_keys(value: str) -> set[str]:
+    normalized = normalize_text(value).replace("\\", "/")
+    return {normalized, normalized.rsplit("/", 1)[-1]}
+
+
+def attach_graph_metadata(sources: list[dict[str, Any]], graph: dict[str, Any]) -> None:
+    by_file: dict[str, list[str]] = {}
+    for node_id, node in graph.get("nodes", {}).items():
+        for source_file in node.get("source_files", []):
+            for key in graph_source_keys(source_file):
+                by_file.setdefault(key, []).append(node_id)
+    for source in sources:
+        node_ids = []
+        for key in graph_source_keys(source.get("name", "")):
+            node_ids.extend(by_file.get(key, []))
+        source["graph_nodes"] = sorted(set(node_ids))
+
+
+def graph_ranked_sources(sources: list[dict[str, Any]], graph: dict[str, Any], query: str) -> list[dict[str, Any]]:
+    """Rank sources by direct wording and graph neighborhood for the current field."""
+    query_tokens = {token for token in re.findall(r"[\wÀ-ÿ]{4,}", normalize_text(query))
+                    if token not in {"para", "como", "qual", "quais", "essa", "este", "campo", "proposta", "cultural"}}
+    nodes = graph.get("nodes", {})
+    adjacency: dict[str, set[str]] = {}
+    for link in graph.get("links", []):
+        adjacency.setdefault(link["source"], set()).add(link["target"])
+        adjacency.setdefault(link["target"], set()).add(link["source"])
+    seed_nodes = set()
+    for node_id, node in nodes.items():
+        haystack = normalize_text(" ".join([node.get("label", ""), node.get("community", "")]))
+        overlap = sum(token in haystack for token in query_tokens)
+        if overlap:
+            seed_nodes.add(node_id)
+    neighborhood = set(seed_nodes)
+    for node_id in seed_nodes:
+        neighborhood.update(adjacency.get(node_id, set()))
+    node_score = {node_id: (5 if node_id in seed_nodes else 2) for node_id in neighborhood}
+    for edge in graph.get("hyperedges", []):
+        if seed_nodes.intersection(edge.get("nodes", [])):
+            for node_id in edge.get("nodes", []):
+                node_score[node_id] = max(node_score.get(node_id, 0), 3)
+    scored = []
+    for source in sources:
+        name = normalize_text(source.get("name", ""))
+        direct = sum(token in name for token in query_tokens)
+        graph_score = min(sum(node_score.get(node_id, 0) for node_id in source.get("graph_nodes", [])), 10)
+        semantic_boost = 0
+        if any(token in query_tokens for token in {"metodologia", "atividades", "atividade", "aulas", "luteria", "pedagogica", "pedagogico"}) and re.search(r"luteria|aula|escola|metodologia", name):
+            semantic_boost += 24
+        if any(token in query_tokens for token in {"orcamento", "custos", "custo", "financeiro", "rubricas", "quantitativos"}) and re.search(r"orcamento|financeir|planilha|relatorio", name):
+            semantic_boost += 24
+        if any(token in query_tokens for token in {"acessibilidade", "democratizacao", "inclusao", "contrapartida"}) and re.search(r"sumula|instru|regulamento|acess|projeto", name):
+            semantic_boost += 24
+        base_rank = source_rank(source)[0]
+        scored.append((semantic_boost + direct * 30 + graph_score * 2 - base_rank, -base_rank, source_rank(source)[1], source))
+    scored.sort(key=lambda item: item[:3], reverse=True)
+    return [item[3] for item in scored]
+
+
 def should_include(item: dict[str, Any]) -> bool:
     name = item.get("name", "")
     if item.get("mimeType") == FOLDER or EXCLUDE_RE.search(name):
@@ -143,7 +242,14 @@ def sync_context() -> dict[str, Any]:
     service = drive_service()
     files = all_files(service, REFERENCE_FOLDER_ID)
     sources, skipped = [], 0
+    graph = {}
     for item in files:
+        if item.get("name", "").lower() == GRAPH_NAME.lower():
+            try:
+                graph = compact_graph(download_bytes(service, item["id"], item["mimeType"]))
+            except Exception:
+                graph = {}
+            continue
         if not should_include(item):
             skipped += 1
             continue
@@ -160,8 +266,9 @@ def sync_context() -> dict[str, Any]:
             "modifiedTime": item.get("modifiedTime"), "webViewLink": item.get("webViewLink"),
             "text": text[:MAX_SOURCE_CHARS],
         })
+    attach_graph_metadata(sources, graph)
     sources.sort(key=source_rank)
-    payload = {"reference_folder_id": REFERENCE_FOLDER_ID, "source_count": len(sources), "skipped": skipped, "sources": sources}
+    payload = {"reference_folder_id": REFERENCE_FOLDER_ID, "source_count": len(sources), "skipped": skipped, "sources": sources, "graph": graph}
     CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
     CACHE_PATH.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
     return payload
@@ -194,9 +301,10 @@ def context_prompt(user_prompt: str, project_text: str = "", draft_text: str = "
         "Se faltar informação, marque [CONFIRMAR] em vez de preencher por suposição.",
         "\nPEDIDO ATUAL:\n" + user_prompt,
     ]
+    ranked_sources = graph_ranked_sources(data.get("sources", []), data.get("graph", {}), user_prompt)
     source_parts = []
     source_chars = 0
-    for source in data.get("sources", []):
+    for source in ranked_sources:
         block = f"\n\n--- FONTE: {source['name']} ---\n{source['text']}"
         if source_chars + len(block) > MAX_CONTEXT_CHARS:
             break
